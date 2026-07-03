@@ -296,7 +296,8 @@ function addCustomProvider() {
     is_enabled: 0,
     priority: settings.value.configs.length + 1,
     max_context_tokens: 256000,
-    available_models: []
+    available_models: [],
+    thinking_enabled: 0
   })
   selectedType.value = modelType
   showAddModal.value = false
@@ -464,6 +465,15 @@ function clampGenerationParam(key: GenerationParamKey): void {
                     :checked="selectedConfig.is_enabled === 1"
                     class="toggle toggle-primary toggle-sm"
                     @change="(e: Event) => { selectedConfig!.is_enabled = (e.target as HTMLInputElement).checked ? 1 : 0 }"
+                  />
+                </label>
+                <label v-if="selectedConfig.model_type === 'doubao'" class="flex items-center gap-2 cursor-pointer">
+                  <span class="text-sm text-base-content/60">深度思考</span>
+                  <input
+                    type="checkbox"
+                    :checked="selectedConfig.thinking_enabled === 1"
+                    class="toggle toggle-secondary toggle-sm"
+                    @change="(e: Event) => { selectedConfig!.thinking_enabled = (e.target as HTMLInputElement).checked ? 1 : 0 }"
                   />
                 </label>
               </div>

@@ -17,7 +17,8 @@ function defaultConfig(priority: number, provider: (typeof BUILTIN_PROVIDERS)[nu
     is_enabled: provider.type === 'deepseek' ? 1 : 0,
     priority,
     max_context_tokens: 256000,
-    available_models: []
+    available_models: [],
+    thinking_enabled: 0
   }
 }
 

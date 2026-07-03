@@ -57,22 +57,28 @@ export async function chat(config: ModelConfig, systemPrompt: string, prompt: st
       { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt }
     ]
+    const requestBody: Record<string, unknown> = {
+      model: config.model_name,
+      messages,
+      temperature: params.temperature,
+      top_p: params.topP,
+      max_tokens: params.maxTokens,
+      frequency_penalty: params.frequencyPenalty,
+      presence_penalty: params.presencePenalty,
+      response_format: { type: 'json_object' }
+    }
+
+    if (config.thinking_enabled === 1) {
+      requestBody.thinking = { type: 'enabled' }
+    }
+
     const data = await postJson(
       `${stripTrailingSlash(config.api_base)}/chat/completions`,
       {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.api_key}`
       },
-      {
-        model: config.model_name,
-        messages,
-        temperature: params.temperature,
-        top_p: params.topP,
-        max_tokens: params.maxTokens,
-        frequency_penalty: params.frequencyPenalty,
-        presence_penalty: params.presencePenalty,
-        response_format: { type: 'json_object' }
-      }
+      requestBody
     ) as { choices?: Array<{ message?: { content?: string } }> }
 
     return {

@@ -11,6 +11,7 @@ export interface ModelConfig {
   priority: number
   max_context_tokens: number
   available_models: string[]
+  thinking_enabled: number
 }
 
 export interface GenerationParams {
