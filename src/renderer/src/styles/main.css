@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: var(--font-size-base, 14px);
+  }
+
+  :root {
+    --font-size-base: 14px;
+    --ui-scale: 1;
+    --spacing-scale: 1.15;
+  }
+
+  body {
+    @apply antialiased min-h-screen bg-base-100 text-base-content;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #app {
+    @apply h-screen flex flex-col;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--fallback-b3, oklch(var(--b3)/1));
+    border-radius: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--fallback-b2, oklch(var(--b2)/1));
+    border-radius: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fallback-n, oklch(var(--n)/1));
+  }
+
+  ::selection {
+    @apply bg-primary text-primary-content;
+  }
+
+}
+
+@layer components {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-base-200;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-base-300 rounded-full;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-base-content/20;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+.btn {
+  height: calc(3rem * var(--ui-scale, 1));
+  min-height: calc(3rem * var(--ui-scale, 1));
+  padding-left: calc(1rem * var(--ui-scale, 1));
+  padding-right: calc(1rem * var(--ui-scale, 1));
+}
+.btn-sm {
+  height: calc(2rem * var(--ui-scale, 1));
+  min-height: calc(2rem * var(--ui-scale, 1));
+  padding-left: calc(0.75rem * var(--ui-scale, 1));
+  padding-right: calc(0.75rem * var(--ui-scale, 1));
+}
+.btn-xs {
+  height: calc(1.5rem * var(--ui-scale, 1));
+  min-height: calc(1.5rem * var(--ui-scale, 1));
+  padding-left: calc(0.5rem * var(--ui-scale, 1));
+  padding-right: calc(0.5rem * var(--ui-scale, 1));
+}
+.btn-lg {
+  height: calc(4rem * var(--ui-scale, 1));
+  min-height: calc(4rem * var(--ui-scale, 1));
+}
+.input {
+  height: calc(3rem * var(--ui-scale, 1));
+}
+.input-sm {
+  height: calc(2rem * var(--ui-scale, 1));
+}
+.input-lg {
+  height: calc(4rem * var(--ui-scale, 1));
+}
+.select {
+  height: calc(3rem * var(--ui-scale, 1));
+  min-height: calc(3rem * var(--ui-scale, 1));
+}
+.select-sm {
+  height: calc(2rem * var(--ui-scale, 1));
+  min-height: calc(2rem * var(--ui-scale, 1));
+}
+.textarea {
+  min-height: calc(3rem * var(--ui-scale, 1));
+}
+.toggle-sm {
+  --toggle-size: calc(1.25rem * var(--ui-scale, 1));
+}
+
+main > div {
+  padding: calc(2rem * var(--spacing-scale, 1.15));
+}
+.settings-layout {
+  gap: calc(0.75rem * var(--spacing-scale, 1.15));
+}
+aside .menu li > * {
+  padding-top: calc(0.25rem * var(--spacing-scale, 1.15));
+  padding-bottom: calc(0.25rem * var(--spacing-scale, 1.15));
+}
