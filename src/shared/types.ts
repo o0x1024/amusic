@@ -71,6 +71,49 @@ export interface SongResult {
   negativePrompt: string
 }
 
+export interface HitLabRequest {
+  idea: string
+  targetPlatforms: string[]
+  audience: string
+  emotionalCore: string
+  styleBlend: string
+  hookType: string
+  lyricAngle: string
+  versionCount: number
+  constraints: string
+}
+
+export interface HitLabIdeaResult {
+  idea: string
+  lyricAngle: string
+  emotionalCore: string
+  hookType: string
+}
+
+export interface HitLabVariant {
+  title: string
+  positioning: string
+  targetPlatform: string
+  hookLine: string
+  firstThreeSeconds: string
+  chorusSnippet: string
+  lyrics: string
+  stylePrompt: string
+  fullPrompt: string
+  douyinScore: number
+  qishuiScore: number
+  memorabilityScore: number
+  spreadPotential: string
+  shortVideoUseCases: string[]
+  riskNotes: string[]
+  iterationAdvice: string
+}
+
+export interface HitLabResult {
+  summary: string
+  variants: HitLabVariant[]
+}
+
 export interface ModelResponse {
   success: boolean
   content: string

@@ -1,5 +1,5 @@
 import { resolveProtocol } from '../shared/model-providers'
-import type { ModelConfig, ModelResponse, SongRequest, SongResult } from '../shared/types'
+import type { HitLabIdeaResult, HitLabRequest, HitLabResult, HitLabVariant, ModelConfig, ModelResponse, SongRequest, SongResult } from '../shared/types'
 import { getActiveConfig, getGenerationParams } from './settings-store'
 
 interface ChatMessage {
@@ -160,6 +160,92 @@ function normalizeSongResult(value: unknown): SongResult {
   }
 }
 
+function boundedScore(value: unknown): number {
+  const score = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(score)) return 0
+  return Math.max(0, Math.min(100, Math.round(score)))
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map(item => String(item).trim()).filter(Boolean)
+}
+
+function normalizeLyricBlock(value: unknown): string {
+  const text = typeof value === 'string' ? value.trim() : ''
+  if (!text) return ''
+
+  const normalized = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]*\/[ \t]*/g, '\n')
+    .replace(/\s*(\[[^\]]+\])\s*/g, '\n\n$1\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  const sections: string[][] = []
+  let current: string[] = []
+
+  for (const line of normalized) {
+    if (/^\[[^\]]+\]$/.test(line)) {
+      if (current.length > 0) sections.push(current)
+      current = [line]
+    } else {
+      current.push(line)
+    }
+  }
+  if (current.length > 0) sections.push(current)
+
+  return sections
+    .map(section => section.join('\n'))
+    .join('\n\n')
+    .trim()
+}
+
+function normalizeHitLabVariant(value: unknown, index: number): HitLabVariant {
+  const data = value as Partial<HitLabVariant>
+  return {
+    title: data.title?.trim() || `候选 ${index + 1}`,
+    positioning: data.positioning?.trim() || '',
+    targetPlatform: data.targetPlatform?.trim() || '',
+    hookLine: data.hookLine?.trim() || '',
+    firstThreeSeconds: data.firstThreeSeconds?.trim() || '',
+    chorusSnippet: normalizeLyricBlock(data.chorusSnippet),
+    lyrics: normalizeLyricBlock(data.lyrics),
+    stylePrompt: data.stylePrompt?.trim() || '',
+    fullPrompt: data.fullPrompt?.trim() || '',
+    douyinScore: boundedScore(data.douyinScore),
+    qishuiScore: boundedScore(data.qishuiScore),
+    memorabilityScore: boundedScore(data.memorabilityScore),
+    spreadPotential: data.spreadPotential?.trim() || '',
+    shortVideoUseCases: normalizeStringArray(data.shortVideoUseCases),
+    riskNotes: normalizeStringArray(data.riskNotes),
+    iterationAdvice: data.iterationAdvice?.trim() || ''
+  }
+}
+
+function normalizeHitLabResult(value: unknown): HitLabResult {
+  const data = value as Partial<HitLabResult>
+  const variants = Array.isArray(data.variants)
+    ? data.variants.map((item, index) => normalizeHitLabVariant(item, index))
+    : []
+  return {
+    summary: data.summary?.trim() || '',
+    variants
+  }
+}
+
+function normalizeHitLabIdeaResult(value: unknown): HitLabIdeaResult {
+  const data = value as Partial<HitLabIdeaResult>
+  return {
+    idea: data.idea?.trim() || '',
+    lyricAngle: data.lyricAngle?.trim() || '',
+    emotionalCore: data.emotionalCore?.trim() || '',
+    hookType: data.hookType?.trim() || ''
+  }
+}
+
 export async function generateSong(request: SongRequest): Promise<SongResult> {
   const config = getActiveConfig()
   if (!config) throw new Error('没有可用的模型配置，请先在系统设置 → AI 服务中配置并启用至少一个模型')
@@ -262,4 +348,156 @@ ${request.referenceLyrics.trim()}
   const result = await chat(config, systemPrompt, prompt)
   if (!result.success) throw new Error(result.error ?? 'AI 生成失败')
   return normalizeSongResult(jsonFromText(result.content))
+}
+
+export async function generateHitLab(request: HitLabRequest): Promise<HitLabResult> {
+  const config = getActiveConfig()
+  if (!config) throw new Error('没有可用的模型配置，请先在系统设置 → AI 服务中配置并启用至少一个模型')
+
+  const versionCount = Math.max(2, Math.min(8, Math.round(request.versionCount || 4)))
+  const platforms = request.targetPlatforms.length > 0 ? request.targetPlatforms.join(' / ') : '抖音 / 汽水音乐'
+
+  const systemPrompt = `你是 amusic 的爆款歌曲 Prompt 实验导演，专注生成歌词和音乐 AI Prompt，不做音频编辑、混音或 DAW 指导。
+
+你的目标：围绕同一个创意生成多个可测试的爆款候选版本，服务抖音与汽水音乐传播，同时保留可进入音乐 AI 平台生成成品的完整提示词。
+
+## 输出规范
+
+只输出 JSON，不要输出 Markdown 或任何额外文字。JSON 包含以下字段：
+
+- **summary**: 本轮实验策略总结，说明核心爆点和版本差异
+- **variants**: 候选数组，数量必须等于用户要求的版本数。每个候选包含：
+  - **title**: 歌名，2-8 字
+  - **positioning**: 一句话定位，说明听众、情绪和传播角度
+  - **targetPlatform**: 最适合的平台，可写"抖音"、"汽水音乐"或"双平台"
+  - **hookLine**: 最抓耳的一句歌词，必须短、口语、适合反复
+  - **firstThreeSeconds**: 前 3 秒听感设计，用歌词/人声/节奏描述，不涉及音频编辑操作
+  - **chorusSnippet**: 适合短视频循环的副歌片段，4-8 行。JSON 字符串中必须使用 \n 换行，不允许用 / 分隔
+  - **lyrics**: 完整歌词草案，包含 [Intro]/[Verse]/[Pre-Chorus]/[Chorus]/[Bridge] 等段落。每个段落标记独占一行，每句歌词独占一行，段落之间空一行；JSON 字符串中必须使用 \n 换行，不允许用 / 分隔
+  - **stylePrompt**: 风格 prompt，包含流派、BPM、人声、核心乐器、制作质感
+  - **fullPrompt**: 可直接复制到音乐 AI 平台的完整中文 prompt
+  - **douyinScore**: 0-100，抖音短视频传播潜力
+  - **qishuiScore**: 0-100，汽水音乐完整收听/收藏潜力
+  - **memorabilityScore**: 0-100，副歌记忆点
+  - **spreadPotential**: 传播理由，说明为什么可能被使用或转发
+  - **shortVideoUseCases**: 3-5 个短视频使用场景
+  - **riskNotes**: 2-4 个风险点，如同质化、歌词空泛、AI 味、侵权相似感
+  - **iterationAdvice**: 下一轮如何改得更强
+
+## 判断标准
+
+1. 抖音优先前 3 秒、强情绪、短句复读、画面适配和二创空间
+2. 汽水音乐优先完整歌曲成立度、副歌复听、情绪陪伴、歌名与收藏欲
+3. 爆款版本要清晰，不要堆砌过多风格；实验版本可以融合，但必须说明传播入口
+4. 避免要求模仿具体歌手声音或复制已有歌词；若用户给出类似要求，转写为通用音乐特征
+5. 每个候选必须有明显差异，不能只是改标题`
+
+  const prompt = `## 爆款实验目标
+
+${request.idea}
+
+## 实验参数
+
+- 目标平台：${platforms}
+- 目标听众：${request.audience || '18-35 岁中文流行音乐听众'}
+- 情绪核心：${request.emotionalCore || '强共鸣、易代入'}
+- 风格融合：${request.styleBlend || '华语流行为底，适度融合新鲜元素'}
+- Hook 类型：${request.hookType || '副歌短句抓耳'}
+- 歌词角度：${request.lyricAngle || '口语化第一人称'}
+- 候选数量：${versionCount}
+- 约束与禁区：${request.constraints || '避免复制现有歌曲；避免过度模仿具体歌手；歌词要自然口语'}
+
+## 生成指令
+
+请生成 ${versionCount} 个候选版本。每个版本都必须包含完整歌词和可复制到音乐 AI 平台的 fullPrompt。
+
+歌词格式硬性要求：
+- lyrics 和 chorusSnippet 必须是真正的分行文本
+- 段落标记如 [Verse 1]、[Chorus] 必须独占一行
+- 每句歌词必须独占一行
+- 段落之间空一行
+- 不允许使用 /、｜、空格把多句歌词挤在同一行
+- 结构示例：
+[Intro]
+(轻电子鼓点点击)
+
+[Verse1]
+早起二十分钟 绕了半条街
+就为买我想吃的芋泥贝果
+
+[Chorus]
+贝果碎了半块
+快乐多了半块
+生活有点难
+也会有惊喜来
+
+版本设计建议：
+1. 至少 1 个偏抖音 15 秒爆点
+2. 至少 1 个偏汽水音乐完整收听
+3. 至少 1 个偏商业流行稳妥版本
+4. 至少 1 个偏融合/实验但仍有传播入口的版本
+
+评分要拉开差异，不要全部高分。`
+
+  const result = await chat(config, systemPrompt, prompt)
+  if (!result.success) throw new Error(result.error ?? 'AI 生成失败')
+  return normalizeHitLabResult(jsonFromText(result.content))
+}
+
+export async function generateHitLabIdea(request: HitLabRequest): Promise<HitLabIdeaResult> {
+  const config = getActiveConfig()
+  if (!config) throw new Error('没有可用的模型配置，请先在系统设置 → AI 服务中配置并启用至少一个模型')
+
+  const platforms = request.targetPlatforms.length > 0 ? request.targetPlatforms.join(' / ') : '抖音 / 汽水音乐'
+  const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+  const systemPrompt = `你是 amusic 的爆款音乐创意策划，只负责为歌词和歌曲 Prompt 实验生成一个核心创意。
+
+只输出 JSON，不要输出 Markdown 或任何额外文字。JSON 格式：
+{"idea":"...","lyricAngle":"...","emotionalCore":"...","hookType":"..."}
+
+创意要求：
+1. 80-140 个中文字符
+2. 必须包含一个具体生活场景、一个情绪反差、一个适合副歌重复的 Hook 方向
+3. 面向抖音/汽水音乐传播，但不要写运营方案
+4. 不要要求模仿具体歌手，不要引用已有歌词
+5. 每次都要有新鲜角度，避免泛泛的失恋、治愈、热血空话
+6. lyricAngle 必须是适配该创意的新歌词角度，使用 4-8 个中文字符概括
+7. emotionalCore 使用 3-5 个情绪关键词，以顿号分隔
+8. hookType 使用 4-8 个中文字符概括核心抓耳方式
+
+题材池必须广，不要连续围绕前任、失恋、暗恋、分手。优先随机选择这些方向之一：
+- 打工人/通勤/下班后的荒诞感
+- 朋友、室友、同事之间的微妙关系
+- 家庭、亲情、代际沟通
+- 自我成长、摆烂、反内耗
+- 城市观察、夜市、便利店、地铁、电梯
+- 夏日旅行、县城、校园、节日
+- 赛博生活、AI 陪伴、手机依赖、社交平台疲惫
+- 反差爽感、轻喜剧、自嘲、黑色幽默
+- 实验性意象、梦境、未来感、非人称叙事
+- 少量爱情题材，但不能默认是前任/失恋`
+
+  const prompt = `请随机生成 1 条新的核心创意，用于爆款实验台。
+
+## 当前实验偏好
+
+- 目标平台：${platforms}
+- 目标听众：${request.audience || '18-35 岁中文流行音乐听众'}
+- 风格融合：${request.styleBlend || '华语流行为底，适度融合新鲜元素'}
+- 约束与禁区：${request.constraints || '避免复制现有歌曲；避免过度模仿具体歌手；歌词要自然口语'}
+- 随机种子：${seed}
+
+## 去偏要求
+
+除非约束与禁区明确要求爱情/前任/失恋，否则不要沿用当前输入里的旧题材、旧情绪核心、旧歌词角度或旧 Hook 类型。
+本次请主动换一个题材领域，并同步给出新的 lyricAngle、emotionalCore 和 hookType。
+
+请只返回 JSON。`
+
+  const result = await chat(config, systemPrompt, prompt)
+  if (!result.success) throw new Error(result.error ?? 'AI 生成失败')
+  const ideaResult = normalizeHitLabIdeaResult(jsonFromText(result.content))
+  if (!ideaResult.idea) throw new Error('AI 没有返回可用的核心创意')
+  return ideaResult
 }

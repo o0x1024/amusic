@@ -173,7 +173,7 @@ const selectedParams = ref<Record<ParamKey, string[]>>({
 const rhymeChoice = ref<'需要押韵' | '不强制押韵'>('需要押韵')
 
 const request = ref<SongRequest>({
-  idea: '深夜分手后一个人开车回家，城市霓虹从车窗上划过去，情绪克制但副歌有爆发。',
+  idea: '用简单直白的短句写爱恨遗憾、独处细碎情绪，搭配易抓耳重复句，贴合短视频氛围感，不用复杂修辞。',
   referenceLyrics: '',
   language: selectedParams.value.language.join(' / '),
   style: selectedStyleTags.value.join(' / '),
