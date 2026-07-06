@@ -1,5 +1,5 @@
 import { resolveProtocol } from '../shared/model-providers'
-import type { HitLabIdeaResult, HitLabRequest, HitLabResult, HitLabVariant, ModelConfig, ModelResponse, SongRequest, SongResult } from '../shared/types'
+import type { HitLabIdeaResult, HitLabRequest, HitLabResult, HitLabVariant, ModelConfig, ModelResponse, SongRequest, SongResult, SongVariant } from '../shared/types'
 import { getActiveConfig, getGenerationParams } from './settings-store'
 
 interface ChatMessage {
@@ -154,15 +154,34 @@ function jsonFromText(text: string): unknown {
 
 function normalizeSongResult(value: unknown): SongResult {
   const data = value as Partial<SongResult>
+  const lyrics = normalizeLyricBlock(data.lyrics)
   return {
     title: data.title?.trim() || '未命名歌曲',
     concept: data.concept?.trim() || '',
-    lyrics: data.lyrics?.trim() || '',
+    lyrics,
     stylePrompt: data.stylePrompt?.trim() || '',
     arrangement: data.arrangement?.trim() || '',
     vocalPrompt: data.vocalPrompt?.trim() || '',
     fullPrompt: data.fullPrompt?.trim() || '',
-    negativePrompt: data.negativePrompt?.trim() || ''
+    sunoPrompt: data.sunoPrompt?.trim() || data.fullPrompt?.trim() || '',
+    udioPrompt: data.udioPrompt?.trim() || data.fullPrompt?.trim() || '',
+    miaoxiangPrompt: data.miaoxiangPrompt?.trim() || data.fullPrompt?.trim() || '',
+    lyricOnly: normalizeLyricBlock(data.lyricOnly) || lyrics,
+    negativePrompt: data.negativePrompt?.trim() || '',
+    qualityChecks: normalizeStringArray(data.qualityChecks),
+    revisionSuggestions: normalizeStringArray(data.revisionSuggestions),
+    variants: Array.isArray(data.variants)
+      ? data.variants.map(item => {
+        const variant = item as Partial<SongVariant>
+        return {
+          title: variant.title?.trim() || '',
+          direction: variant.direction?.trim() || '',
+          hookLine: variant.hookLine?.trim() || '',
+          stylePrompt: variant.stylePrompt?.trim() || '',
+          revisionFocus: variant.revisionFocus?.trim() || ''
+        }
+      }).filter(item => item.title || item.direction || item.hookLine)
+      : []
   }
 }
 
@@ -271,7 +290,14 @@ export async function generateSong(request: SongRequest): Promise<SongResult> {
 - **arrangement**: 编曲描述（80-150 字），逐段说明各乐器进入/退出时机和演奏方式
 - **vocalPrompt**: 人声指导（50-100 字），描述音色、唱法、力度变化、和声编排
 - **fullPrompt**: 最终可直接粘贴到音乐 AI 平台的完整提示词，使用中文撰写，格式见下
+- **sunoPrompt**: 面向 Suno 的简洁英文/中英混合标签式 prompt，突出流派、情绪、人声、BPM、核心乐器
+- **udioPrompt**: 面向 Udio 的详细中文 prompt，包含结构、制作质感、动态推进和人声指导
+- **miaoxiangPrompt**: 面向妙响的中文 prompt，表达清晰，强调风格、画面、人声和编曲
+- **lyricOnly**: 只包含完整歌词，不包含任何 prompt 说明
 - **negativePrompt**: 需避免的风格、声音、制作问题（30-80 字），使用中文
+- **qualityChecks**: 5-7 条质量检查结论，覆盖副歌记忆点、歌词自然度、风格清晰度、prompt 可执行性、侵权/模仿风险、平台适配
+- **revisionSuggestions**: 3-5 条下一轮修改建议，每条必须可直接执行
+- **variants**: 3 个可继续打磨的方向，每个包含 title、direction、hookLine、stylePrompt、revisionFocus
 
 ## fullPrompt 格式规范
 
@@ -298,12 +324,25 @@ fullPrompt 必须使用中文，按以下结构组织，每项单独一行：
 5. 情绪要有递进：主歌铺垫 → 预副歌推升 → 副歌爆发
 6. Bridge 段落要有转折感，可以换视角或换情绪
 
+## 热榜歌词规则
+
+如果用户提供了热榜歌词结构，必须优先执行：
+
+- 开篇第一句必须先给具象自然画面，禁止直接抒情或态度输出
+- 15s 传播单元控制在 2-3 句，每句可独立截取
+- 核心句以 6-8 字轻盈短句为主，景多情少，情绪克制
+- 采用轻对仗、微排比、留白陈述，不使用僵硬对称或长篇故事线
+- 优先使用规则给出的意象词和情绪词，避开规则给出的淘汰词
+- 禁止人称强绑定，减少"我/你/他"的高频直接指代，提高二创普适性
+
 ## 风格转译规则
 
 - 用户选择的风格标签需要转译为具体的音乐制作术语（如"抒情摇滚"→ 另类摇滚抒情曲, 失真吉他层次堆叠, 情绪化动态推进）
 - 人声描述中如果提到歌手名字，转写为非侵权的音乐特征描述（如"周杰伦式含糊咬字"→ 松弛咬字, 对话式唱法, 带有微妙的节奏变化）
 - 节奏参数需提取具体 BPM 中值（如"中慢板 72-88 BPM"→ 80 BPM）
-- 根据风格组合推导合适的乐器配置、调性和制作质感`
+- 根据风格组合推导合适的乐器配置、调性和制作质感
+- 如果 generationMode 是"生成 3 个方向"，主歌词仍输出最推荐版本，同时 variants 必须给出 3 个明显不同的后续方向
+- 如果 iterationInstruction 不为空，优先执行该迭代指令，并明确保留不需要改变的部分`
 
   const prompt = `## 创作意图
 
@@ -312,6 +351,9 @@ ${request.idea}
 ## 创作参数
 
 - 语言：${request.language}
+- 生成模式：${request.generationMode || '生成 1 个精修版'}
+- 迭代指令：${request.iterationInstruction || '无'}
+- 热榜歌词结构：${request.hotLyricRule || '不使用热榜规则'}
 - 音乐风格：${request.style}
 - 情绪状态：${request.mood}
 - 氛围感：${request.atmosphere}

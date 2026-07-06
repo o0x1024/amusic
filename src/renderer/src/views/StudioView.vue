@@ -7,6 +7,9 @@ const emit = defineEmits<{ 'open-settings': [] }>()
 
 type ParamKey = 'language' | 'mood' | 'atmosphere' | 'vocal' | 'vocalArrangement' | 'tempo' | 'groove' | 'key' | 'energyCurve' | 'arrangement' | 'structure' | 'platform' | 'lyricDensity' | 'rhymeScheme' | 'useCase' | 'songLength'
 
+const basicParamKeys: ParamKey[] = ['language', 'mood', 'atmosphere', 'vocal', 'vocalArrangement', 'platform', 'useCase']
+const advancedParamKeys: ParamKey[] = ['tempo', 'groove', 'key', 'energyCurve', 'arrangement', 'structure', 'lyricDensity', 'rhymeScheme', 'songLength']
+
 const styleGroups = [
   {
     title: '核心流派',
@@ -46,8 +49,204 @@ const styleGroups = [
   }
 ]
 
+const quickStyleOptions = [
+  '华语流行',
+  'R&B',
+  '民谣',
+  '摇滚',
+  '电子流行',
+  '说唱',
+  'City Pop',
+  'K-pop',
+  '独立流行',
+  '钢琴主导',
+  '吉他主导',
+  '温暖模拟质感'
+]
+
 const selectedStyleTags = ref(['华语流行'])
+const selectedFusion = ref({
+  base: ['独立流行'],
+  element: ['Trip-Hop'],
+  texture: ['合成器铺底']
+})
+const selectedChineseFusion = ref({
+  mood: ['江南'],
+  source: ['昆曲'],
+  instrument: ['古筝', '箫'],
+  method: ['现代流行融合']
+})
 const rhymeOptions: Array<'需要押韵' | '不强制押韵'> = ['需要押韵', '不强制押韵']
+const generationModeOptions = ['生成 1 个精修版', '生成 3 个方向']
+const hotLyricRuleOptions = [
+  {
+    title: '不使用热榜规则',
+    value: '',
+    styleTags: [],
+    params: {},
+    summary: '按当前灵感和参数自由创作。'
+  },
+  {
+    title: '夏日温柔氛围感',
+    value: [
+      '赛道：夏日温柔氛围感。',
+      '结构：场景具象 1 句 + 轻情绪状态 1 句 + 留白金句 1 句，形成 15s 超短闭环。',
+      '句式：6-7 字短句为主，景深情浅，画面占比约 70%，情绪占比约 30%。',
+      '用词：优先晚风、落日、初夏、星光、山野、暮色、温柔、余光、清风。',
+      '避雷：禁止悲情词汇、厚重人生感慨、激烈情绪、长修饰语。'
+    ].join('\n'),
+    styleTags: ['华语流行', '电子流行', '温暖模拟质感'],
+    params: {
+      mood: ['温暖', '释怀'],
+      atmosphere: ['夏日', '海边'],
+      lyricDensity: ['极简短句'],
+      useCase: ['短视频BGM'],
+      songLength: ['30秒短视频']
+    },
+    summary: '晚风、落日、山野、暮色，适合日常 vlog 和夏日剪辑。'
+  },
+  {
+    title: '轻遗憾青春叙旧',
+    value: [
+      '赛道：轻遗憾青春叙旧流。',
+      '结构：怀旧场景铺垫 1 句 + 青春浅遗憾 1 句 + 温柔释怀收尾 1 句。',
+      '句式：7-8 字短句，过去 vs 现在的轻对比，采用释怀式陈述。',
+      '用词：优先叙旧、余温、时光、旧梦、岁岁、伏笔、经年、初见。',
+      '避雷：禁止反问式虐心句、浓烈悲伤、纠缠式表达。'
+    ].join('\n'),
+    styleTags: ['华语流行', 'City Pop', '低保真颗粒'],
+    params: {
+      mood: ['伤感', '释怀'],
+      atmosphere: ['怀旧', '夜晚感'],
+      lyricDensity: ['留白呼吸感'],
+      useCase: ['短视频BGM']
+    },
+    summary: '遗憾但不纠结，怀念但不沉沦。'
+  },
+  {
+    title: '极简治愈人生',
+    value: [
+      '赛道：极简治愈人生流。',
+      '结构：人间状态短句 1 句 + 自我和解感悟 1 句 + 温柔态度金句 1 句。',
+      '句式：8 字左右短句，工整柔和，无负面宣泄。',
+      '用词：优先温柔、人间、释然、平凡、期许、安然、奔赴。',
+      '避雷：禁止厚重中年感慨、说教、空泛鸡汤。'
+    ].join('\n'),
+    styleTags: ['华语流行', '民谣', '钢琴主导'],
+    params: {
+      mood: ['治愈', '温暖'],
+      atmosphere: ['室内亲密'],
+      lyricDensity: ['极简短句'],
+      energyCurve: ['平稳推进']
+    },
+    summary: '适合主页文案、治愈日常和温柔陪伴。'
+  },
+  {
+    title: '新式轻国风氛围',
+    value: [
+      '赛道：新式轻国风氛围感。',
+      '结构：极简国风意象 1 句 + 现代温柔抒情 1 句 + 短句记忆点收尾。',
+      '句式：长短柔和搭配，不用复杂古风对仗和生僻典故。',
+      '用词：优先轻舟、渡月、雾中、半盏、清风、赴约、山河、岁岁。',
+      '避雷：禁止堆砌古风辞藻、复杂典故、过度书面化。'
+    ].join('\n'),
+    styleTags: ['华语流行', '中国风', '古典跨界'],
+    params: {
+      mood: ['治愈', '梦幻'],
+      atmosphere: ['江南', '山水'],
+      lyricDensity: ['更诗意'],
+      arrangement: ['弦乐前奏']
+    },
+    summary: '国风外壳，现代温柔情绪内核。'
+  }
+]
+const creativePresets: Array<{ title: string; styleTags: string[]; params: Partial<Record<ParamKey, string[]>>; ideaPatch: string }> = [
+  {
+    title: '短视频爆款副歌',
+    styleTags: ['华语流行', 'R&B', '电子流行'],
+    params: {
+      mood: ['孤独', '释怀'],
+      atmosphere: ['都市', '夜晚感'],
+      vocal: ['男声', '副歌有力量'],
+      tempo: ['中速 88-112 BPM'],
+      energyCurve: ['突然爆发'],
+      lyricDensity: ['副歌短句抓耳'],
+      useCase: ['短视频BGM'],
+      songLength: ['1分钟短曲']
+    },
+    ideaPatch: '创作目标：副歌要在前 30 秒内出现，核心句适合短视频反复使用。'
+  },
+  {
+    title: '完整流行歌',
+    styleTags: ['华语流行', '温暖模拟质感'],
+    params: {
+      mood: ['伤感', '释怀'],
+      atmosphere: ['夜晚感'],
+      vocal: ['男声'],
+      tempo: ['中慢板 72-88 BPM'],
+      energyCurve: ['渐强爆发'],
+      useCase: ['完整歌曲'],
+      songLength: ['3分钟+']
+    },
+    ideaPatch: '创作目标：完整歌曲结构成立，主歌叙事清楚，副歌有记忆点。'
+  },
+  {
+    title: '治愈民谣',
+    styleTags: ['民谣', '木吉他原声'],
+    params: {
+      mood: ['治愈', '温暖'],
+      atmosphere: ['室内亲密'],
+      vocal: ['民谣白嗓', '亲密低语'],
+      tempo: ['慢板 60-72 BPM'],
+      arrangement: ['木吉他前奏'],
+      energyCurve: ['平稳推进']
+    },
+    ideaPatch: '创作目标：歌词像真实安慰，不煽情，编曲保持克制。'
+  },
+  {
+    title: 'R&B 氛围歌',
+    styleTags: ['R&B', 'Neo-Soul', '低保真颗粒'],
+    params: {
+      mood: ['慵懒', '迷茫'],
+      atmosphere: ['夜晚感', '都市'],
+      vocal: ['略带气声', '灵魂乐转音'],
+      tempo: ['中慢板 72-88 BPM'],
+      groove: ['切分律动'],
+      lyricDensity: ['更口语']
+    },
+    ideaPatch: '创作目标：人声贴近，律动松弛，歌词有夜晚独处的细节。'
+  },
+  {
+    title: '影视感配乐',
+    styleTags: ['管弦电影感', '钢琴主导', '弦乐编排'],
+    params: {
+      mood: ['坚定', '释怀'],
+      atmosphere: ['旷野开阔'],
+      vocal: ['空灵声线'],
+      arrangement: ['弦乐前奏', '环境音过渡'],
+      energyCurve: ['阶梯递进'],
+      useCase: ['影视配乐']
+    },
+    ideaPatch: '创作目标：画面感强，段落递进清楚，末段打开空间。'
+  }
+]
+const fusionBuilderOptions = {
+  base: ['华语流行', 'R&B', '民谣', '独立流行', '电子流行', '说唱', 'City Pop', '摇滚'],
+  element: ['Trip-Hop', 'Jazz Hip-Hop', 'Synthwave', 'UK Garage', 'Neo-Soul', '古典跨界', '中国风', 'Afrobeat', 'Dream Pop', 'Lo-fi'],
+  texture: ['低保真颗粒', '温暖模拟质感', '合成器铺底', '极简留白', '厚重低频', '大空间混响', '真实乐器录制', '电子鼓机']
+}
+const chineseFusionOptions = {
+  mood: ['古风', '国风', '江南', '西北', '武侠', '山水', '禅意', '宫廷'],
+  source: ['京剧', '昆曲', '黄梅戏', '越剧', '豫剧', '粤剧', '秦腔', '江南小调', '陕北民歌'],
+  instrument: ['古筝', '琵琶', '二胡', '笛子', '箫', '唢呐', '编钟', '民族打击乐'],
+  method: ['戏腔点缀', '现代流行融合', '电子国风', '影视配乐化', '极简东方留白', '锣鼓经节奏']
+}
+const naturalControls = ['更抓耳', '更口语', '更高级', '更商业', '更电影感', '更私密', '更开阔', '副歌更早进入']
+const platformCopyOptions = [
+  { label: '妙响版', key: 'miaoxiangPrompt' },
+  { label: 'Suno 版', key: 'sunoPrompt' },
+  { label: 'Udio 版', key: 'udioPrompt' }
+] as const
 const parameterGroups: Array<{ key: ParamKey; title: string; fallback: string; options: string[] }> = [
   {
     key: 'language',
@@ -65,7 +264,7 @@ const parameterGroups: Array<{ key: ParamKey; title: string; fallback: string; o
     key: 'atmosphere',
     title: '氛围感',
     fallback: '夜晚感',
-    options: ['夜晚感', '公路感', '雨天', '夏日', '都市', '旷野', '室内', '海边', '怀旧', '未来感', '雾霾', '晴朗', '深海', '沙漠', '星空', '霓虹']
+    options: ['夜晚感', '雨天', '都市', '公路感', '夏日', '海边', '怀旧', '未来感', '室内亲密', '旷野开阔']
   },
   {
     key: 'vocal',
@@ -73,9 +272,7 @@ const parameterGroups: Array<{ key: ParamKey; title: string; fallback: string; o
     fallback: '男声',
     options: [
       '女声', '男声', '中性声线', '亲密低语', '略带气声', '沙哑质感', '空灵声线', '副歌有力量', '说唱段落',
-      '假声男声', '磁性低音', '清亮高音', '烟嗓女声', '民谣白嗓', '戏腔', '花腔', '纯假声', '真假音转换', '耳语式唱法', '爵士慵懒', '灵魂乐转音',
-      '周杰伦式含糊咬字', '林俊杰式清亮高音', '邓紫棋式力量爆发', '陈奕迅式低沉诉说', '王菲式空灵飘渺', '张学友式醇厚深情', '周深式空灵假声', '李健式温暖质朴', '毛不易式平淡叙事', '华晨宇式戏剧化高音', '袁娅维式灵魂转音', '单依纯式R&B气声', '张惠妹式爆发力女声', '那英式通透大气', '孙燕姿式独特颗粒感', '林忆莲式细腻气声', '陶喆式R&B转音', '方大同式灵魂律动',
-      'Adele式深情厚重', 'The Weeknd式假声R&B', 'Billie Eilish式气声耳语', 'Ed Sheeran式温暖叙事', 'Taylor Swift式清爽流行', 'Beyoncé式力量转音', 'Frank Ocean式慵懒R&B', 'Sam Smith式深情假声', 'Bruno Mars式放克灵魂', 'Sia式戏剧化爆发', 'John Legend式温暖钢琴男声', 'Hozier式空灵低吟', 'Dua Lipa式复古律动', 'Freddie Mercury式摇滚歌剧', 'Michael Jackson式律动感', 'Whitney Houston式宏大高音', 'Amy Winehouse式复古爵士', 'Norah Jones式慵懒低吟'
+      '假声男声', '磁性低音', '清亮高音', '烟嗓女声', '民谣白嗓', '戏腔', '花腔', '纯假声', '真假音转换', '耳语式唱法', '爵士慵懒', '灵魂乐转音'
     ]
   },
   {
@@ -175,6 +372,9 @@ const rhymeChoice = ref<'需要押韵' | '不强制押韵'>('需要押韵')
 const request = ref<SongRequest>({
   idea: '用简单直白的短句写爱恨遗憾、独处细碎情绪，搭配易抓耳重复句，贴合短视频氛围感，不用复杂修辞。',
   referenceLyrics: '',
+  generationMode: '生成 1 个精修版',
+  iterationInstruction: '',
+  hotLyricRule: '',
   language: selectedParams.value.language.join(' / '),
   style: selectedStyleTags.value.join(' / '),
   mood: selectedParams.value.mood.join(' / '),
@@ -200,10 +400,14 @@ const loading = ref(false)
 const error = ref('')
 const copied = ref('')
 const paramsCollapsed = ref(false)
+const advancedParamsCollapsed = ref(true)
 const justFavorited = ref(false)
 const history = ref<HistoryRecord[]>([])
 const historyCollapsed = ref(true)
-const collapsedStyleGroups = ref<Record<string, boolean>>({})
+const detailedStylesCollapsed = ref(true)
+const collapsedStyleGroups = ref<Record<string, boolean>>(
+  Object.fromEntries(styleGroups.map(group => [group.title, true]))
+)
 
 const canGenerate = computed(() => request.value.idea.trim().length > 0 && !loading.value)
 const selectedStyleText = computed(() => selectedStyleTags.value.join(' / '))
@@ -257,6 +461,108 @@ function clearParam(key: ParamKey) {
   syncParamRequest(key)
 }
 
+function setParamValues(key: ParamKey, values: string[]) {
+  selectedParams.value[key] = [...values]
+  syncParamRequest(key)
+}
+
+function applyPreset(preset: typeof creativePresets[number]) {
+  selectedStyleTags.value = [...preset.styleTags]
+  syncStyleRequest()
+  for (const [key, values] of Object.entries(preset.params) as Array<[ParamKey, string[]]>) {
+    setParamValues(key, values)
+  }
+  quickPatch(preset.ideaPatch)
+}
+
+function toggleFusionOption(group: keyof typeof selectedFusion.value, option: string) {
+  const current = selectedFusion.value[group]
+  selectedFusion.value[group] = current.includes(option)
+    ? current.filter(item => item !== option)
+    : [...current, option]
+}
+
+function isFusionSelected(group: keyof typeof selectedFusion.value, option: string): boolean {
+  return selectedFusion.value[group].includes(option)
+}
+
+function applyFusionBuilder() {
+  const combined = [
+    ...selectedFusion.value.base,
+    ...selectedFusion.value.element,
+    ...selectedFusion.value.texture
+  ]
+  selectedStyleTags.value = Array.from(new Set(combined))
+  syncStyleRequest()
+  setParamValues('energyCurve', ['脉冲式起伏'])
+  setParamValues('lyricDensity', ['更诗意'])
+  quickPatch(`融合测试：以 ${selectedFusion.value.base.join(' / ') || '主流流行'} 为主体，融合 ${selectedFusion.value.element.join(' / ') || '实验元素'}，制作质感偏 ${selectedFusion.value.texture.join(' / ') || '特别声音设计'}。`)
+}
+
+function toggleChineseFusionOption(group: keyof typeof selectedChineseFusion.value, option: string) {
+  const current = selectedChineseFusion.value[group]
+  selectedChineseFusion.value[group] = current.includes(option)
+    ? current.filter(item => item !== option)
+    : [...current, option]
+}
+
+function isChineseFusionSelected(group: keyof typeof selectedChineseFusion.value, option: string): boolean {
+  return selectedChineseFusion.value[group].includes(option)
+}
+
+function applyChineseFusionBuilder() {
+  const combined = [
+    ...selectedStyleTags.value,
+    ...selectedChineseFusion.value.mood,
+    ...selectedChineseFusion.value.source,
+    ...selectedChineseFusion.value.instrument,
+    ...selectedChineseFusion.value.method
+  ]
+  selectedStyleTags.value = Array.from(new Set(combined))
+  syncStyleRequest()
+  setParamValues('atmosphere', Array.from(new Set([...selectedParams.value.atmosphere, ...selectedChineseFusion.value.mood])))
+  setParamValues('arrangement', Array.from(new Set([...selectedParams.value.arrangement, ...selectedChineseFusion.value.instrument])))
+  if (selectedChineseFusion.value.method.includes('戏腔点缀')) {
+    setParamValues('vocal', Array.from(new Set([...selectedParams.value.vocal, '戏腔'])))
+  }
+  if (selectedChineseFusion.value.method.includes('影视配乐化')) {
+    setParamValues('energyCurve', ['阶梯递进'])
+  }
+  quickPatch(`中国元素融合：以 ${selectedChineseFusion.value.mood.join(' / ') || '中国意境'} 为画面，参考 ${selectedChineseFusion.value.source.join(' / ') || '戏曲/民歌来源'} 的唱腔气质，使用 ${selectedChineseFusion.value.instrument.join(' / ') || '民族乐器'}，融合方式为 ${selectedChineseFusion.value.method.join(' / ') || '现代流行融合'}。`)
+}
+
+function setGenerationMode(mode: string) {
+  request.value.generationMode = mode
+}
+
+function applyHotLyricRule(rule: typeof hotLyricRuleOptions[number]) {
+  request.value.hotLyricRule = rule.value
+  if (rule.styleTags.length > 0) {
+    selectedStyleTags.value = Array.from(new Set([...selectedStyleTags.value, ...rule.styleTags]))
+    syncStyleRequest()
+  }
+  for (const [key, values] of Object.entries(rule.params) as Array<[ParamKey, string[]]>) {
+    setParamValues(key, values)
+  }
+  if (rule.value) {
+    quickPatch(`热榜歌词方向：${rule.title}。${rule.summary}`)
+  }
+}
+
+function applyNaturalControl(control: string) {
+  const instructions: Record<string, string> = {
+    更抓耳: '调整方向：副歌旋律和歌词更抓耳，核心句更短、更适合重复。',
+    更口语: '调整方向：歌词更口语，像真实的人在说话，减少书面化修辞。',
+    更高级: '调整方向：表达更克制，减少直白口号，制作质感更细腻。',
+    更商业: '调整方向：结构更清晰，副歌更早出现，整体更适合大众传播。',
+    更电影感: '调整方向：画面感更强，编曲空间更开阔，末段情绪推高。',
+    更私密: '调整方向：人声更贴近，编曲更少，歌词更像独处时的低声表达。',
+    更开阔: '调整方向：副歌和尾段更开阔，增加空间感与层次推进。',
+    副歌更早进入: '调整方向：缩短前奏和主歌铺垫，让副歌更早进入。'
+  }
+  quickPatch(instructions[control] || `调整方向：${control}`)
+}
+
 function setRhymeChoice(choice: '需要押韵' | '不强制押韵') {
   rhymeChoice.value = choice
   syncRhymeRequest()
@@ -268,6 +574,10 @@ function isStyleGroupCollapsed(title: string): boolean {
 
 function toggleStyleGroup(title: string) {
   collapsedStyleGroups.value[title] = !collapsedStyleGroups.value[title]
+}
+
+function toggleDetailedStyles() {
+  detailedStylesCollapsed.value = !detailedStylesCollapsed.value
 }
 
 function isStyleSelected(style: string) {
@@ -288,6 +598,46 @@ function clearStyles() {
   syncStyleRequest()
 }
 
+function completeSongResult(value: SongResult): SongResult {
+  return {
+    ...value,
+    sunoPrompt: value.sunoPrompt || value.fullPrompt || '',
+    udioPrompt: value.udioPrompt || value.fullPrompt || '',
+    miaoxiangPrompt: value.miaoxiangPrompt || value.fullPrompt || '',
+    lyricOnly: value.lyricOnly || value.lyrics || '',
+    qualityChecks: value.qualityChecks || [],
+    revisionSuggestions: value.revisionSuggestions || [],
+    variants: value.variants || []
+  }
+}
+
+function iterateWithInstruction(instruction: string) {
+  if (!result.value) return
+  request.value.idea = [
+    `基于当前版本《${result.value.title}》继续打磨。`,
+    `当前概念：${result.value.concept}`,
+    '',
+    '当前歌词：',
+    result.value.lyrics
+  ].join('\n')
+  request.value.iterationInstruction = instruction
+  result.value = null
+  copied.value = ''
+}
+
+function continueWithVariant(variant: SongResult['variants'][number]) {
+  request.value.idea = [
+    `继续打磨候选方向：${variant.title}`,
+    `方向：${variant.direction}`,
+    `核心 Hook：${variant.hookLine}`,
+    `风格：${variant.stylePrompt}`,
+    `下一轮重点：${variant.revisionFocus}`
+  ].join('\n')
+  request.value.iterationInstruction = `按“${variant.title}”方向重写，保留原始创意核心，但强化：${variant.revisionFocus}`
+  result.value = null
+  copied.value = ''
+}
+
 async function generate() {
   if (!canGenerate.value) return
   loading.value = true
@@ -295,7 +645,9 @@ async function generate() {
   copied.value = ''
   result.value = null
   try {
-    result.value = await window.amusic.invoke('music:generate', JSON.parse(JSON.stringify(toRaw(request.value))))
+    const generated = await window.amusic.invoke('music:generate', JSON.parse(JSON.stringify(toRaw(request.value))))
+    result.value = completeSongResult(generated)
+    request.value.iterationInstruction = ''
     if (result.value) {
       const record: HistoryRecord = {
         id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
@@ -335,6 +687,30 @@ const promptText = computed(() => {
   return parts.join('\n')
 })
 
+const lyricText = computed(() => {
+  if (!result.value) return ''
+  return normalizeLyricText(result.value.lyricOnly || result.value.lyrics)
+})
+
+function normalizeLyricText(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]*\/[ \t]*/g, '\n')
+    .replace(/\s*(\[[^\]]+\])\s*/g, '\n\n$1\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join('\n')
+    .replace(/\n(\[[^\]]+\])/g, '\n\n$1')
+    .trim()
+}
+
+function platformPromptText(key: typeof platformCopyOptions[number]['key']): string {
+  if (!result.value) return ''
+  return result.value[key] || promptText.value
+}
+
 onMounted(() => { void loadHistory() })
 
 async function loadHistory() {
@@ -346,8 +722,9 @@ async function loadHistory() {
 }
 
 function viewHistory(record: HistoryRecord) {
-  result.value = record.result
+  result.value = completeSongResult(record.result)
   request.value.idea = record.idea
+  request.value.hotLyricRule = ''
   selectedStyleTags.value = [...record.styleTags]
   const defaults: Record<ParamKey, string[]> = {
     language: [], mood: [], atmosphere: [], vocal: [], vocalArrangement: [],
@@ -421,6 +798,7 @@ function applyFavorite(record: FavoriteRecord) {
   }
   rhymeChoice.value = record.rhyme ? '需要押韵' : '不强制押韵'
   request.value.idea = record.idea
+  request.value.hotLyricRule = ''
   syncStyleRequest()
   for (const key of Object.keys(selectedParams.value) as ParamKey[]) {
     syncParamRequest(key)
@@ -475,7 +853,208 @@ watch(() => props.pendingFavorite, (record) => {
           </div>
 
           <div v-if="!paramsCollapsed" class="mt-5 space-y-5">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="rounded-box border border-base-300/60 bg-base-200/30 p-4 space-y-3">
+              <div class="label py-1">
+                <span class="label-text font-medium text-sm">创作意图预设</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="preset in creativePresets"
+                  :key="preset.title"
+                  type="button"
+                  class="btn btn-outline btn-neutral btn-xs"
+                  @click="applyPreset(preset)"
+                >
+                  {{ preset.title }}
+                </button>
+              </div>
+            </div>
+
+            <div class="rounded-box border border-base-300/60 bg-base-200/30 p-4 space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h4 class="font-semibold text-sm">实验融合测试</h4>
+                  <p class="text-xs text-base-content/50 mt-1">自由组合主风格、融合元素和制作质感</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-xs" @click="applyFusionBuilder">
+                  应用组合测试
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                <div class="space-y-2">
+                  <span class="text-[11px] font-bold text-base-content/40 uppercase tracking-wider">主风格</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in fusionBuilderOptions.base"
+                      :key="option"
+                      type="button"
+                      :class="['btn btn-xs', isFusionSelected('base', option) ? 'btn-secondary' : 'btn-outline btn-neutral']"
+                      @click="toggleFusionOption('base', option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <span class="text-[11px] font-bold text-base-content/40 uppercase tracking-wider">融合元素</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in fusionBuilderOptions.element"
+                      :key="option"
+                      type="button"
+                      :class="['btn btn-xs', isFusionSelected('element', option) ? 'btn-secondary' : 'btn-outline btn-neutral']"
+                      @click="toggleFusionOption('element', option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <span class="text-[11px] font-bold text-base-content/40 uppercase tracking-wider">制作质感</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in fusionBuilderOptions.texture"
+                      :key="option"
+                      type="button"
+                      :class="['btn btn-xs', isFusionSelected('texture', option) ? 'btn-secondary' : 'btn-outline btn-neutral']"
+                      @click="toggleFusionOption('texture', option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <p class="text-xs text-base-content/50 leading-relaxed">
+                当前组合：<span class="font-semibold text-base-content">{{ [...selectedFusion.base, ...selectedFusion.element, ...selectedFusion.texture].join(' / ') || '未选择' }}</span>
+              </p>
+            </div>
+
+            <div class="rounded-box border border-base-300/60 bg-base-200/30 p-4 space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h4 class="font-semibold text-sm">中国元素融合</h4>
+                  <p class="text-xs text-base-content/50 mt-1">组合中国意境、戏曲/民歌来源、民族乐器和融合方式</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-xs" @click="applyChineseFusionBuilder">
+                  应用中国元素
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 xl:grid-cols-4 gap-3">
+                <div class="space-y-2">
+                  <span class="text-[11px] font-bold text-base-content/40 uppercase tracking-wider">中国意境</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in chineseFusionOptions.mood"
+                      :key="option"
+                      type="button"
+                      :class="['btn btn-xs', isChineseFusionSelected('mood', option) ? 'btn-secondary' : 'btn-outline btn-neutral']"
+                      @click="toggleChineseFusionOption('mood', option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <span class="text-[11px] font-bold text-base-content/40 uppercase tracking-wider">戏曲/民歌来源</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in chineseFusionOptions.source"
+                      :key="option"
+                      type="button"
+                      :class="['btn btn-xs', isChineseFusionSelected('source', option) ? 'btn-secondary' : 'btn-outline btn-neutral']"
+                      @click="toggleChineseFusionOption('source', option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <span class="text-[11px] font-bold text-base-content/40 uppercase tracking-wider">民族乐器</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in chineseFusionOptions.instrument"
+                      :key="option"
+                      type="button"
+                      :class="['btn btn-xs', isChineseFusionSelected('instrument', option) ? 'btn-secondary' : 'btn-outline btn-neutral']"
+                      @click="toggleChineseFusionOption('instrument', option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <span class="text-[11px] font-bold text-base-content/40 uppercase tracking-wider">融合方式</span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in chineseFusionOptions.method"
+                      :key="option"
+                      type="button"
+                      :class="['btn btn-xs', isChineseFusionSelected('method', option) ? 'btn-secondary' : 'btn-outline btn-neutral']"
+                      @click="toggleChineseFusionOption('method', option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <p class="text-xs text-base-content/50 leading-relaxed">
+                当前组合：<span class="font-semibold text-base-content">{{ [...selectedChineseFusion.mood, ...selectedChineseFusion.source, ...selectedChineseFusion.instrument, ...selectedChineseFusion.method].join(' / ') || '未选择' }}</span>
+              </p>
+            </div>
+
+            <div class="rounded-box border border-base-300/60 bg-base-200/30 p-4 space-y-3">
+              <div class="label py-1">
+                <span class="label-text font-medium text-sm">生成模式</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="mode in generationModeOptions"
+                  :key="mode"
+                  type="button"
+                  :class="['btn btn-xs', request.generationMode === mode ? 'btn-primary' : 'btn-outline btn-neutral']"
+                  @click="setGenerationMode(mode)"
+                >
+                  {{ mode }}
+                </button>
+              </div>
+            </div>
+
+            <div class="rounded-box border border-base-300/60 bg-base-200/30 p-4 space-y-3">
+              <div class="label py-1">
+                <span class="label-text font-medium text-sm">热榜歌词结构</span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-2">
+                <button
+                  v-for="rule in hotLyricRuleOptions"
+                  :key="rule.title"
+                  type="button"
+                  :class="[
+                    'btn h-20 min-h-20 items-start justify-start text-left text-wrap px-3 py-2 overflow-hidden',
+                    request.hotLyricRule === rule.value ? 'btn-primary' : 'btn-outline btn-neutral'
+                  ]"
+                  @click="applyHotLyricRule(rule)"
+                >
+                  <span class="block min-w-0 w-full overflow-hidden">
+                    <span class="block text-xs font-semibold truncate">{{ rule.title }}</span>
+                    <span class="block text-[11px] opacity-70 leading-snug mt-1 line-clamp-2 whitespace-normal">{{ rule.summary }}</span>
+                  </span>
+                </button>
+              </div>
+              <p v-if="request.hotLyricRule" class="text-xs text-base-content/50 leading-relaxed whitespace-pre-wrap">
+                {{ request.hotLyricRule }}
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <label
                 v-for="group in parameterGroups.filter(item => item.key === 'language')"
                 :key="group.key"
@@ -518,31 +1097,6 @@ watch(() => props.pendingFavorite, (record) => {
                   </button>
                 </div>
               </label>
-
-              <label
-                v-for="group in parameterGroups.filter(item => item.key === 'rhymeScheme')"
-                :key="group.key"
-                class="form-control rounded-box border border-base-300/60 bg-base-200/30 p-4"
-              >
-                <div class="label py-1">
-                  <span class="label-text font-medium text-sm">{{ group.title }}</span>
-                  <button type="button" class="btn btn-ghost btn-xs" @click="clearParam(group.key)">清空</button>
-                </div>
-                <div class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="option in group.options"
-                    :key="option"
-                    type="button"
-                    :class="[
-                      'btn btn-xs',
-                      isParamSelected(group.key, option) ? 'btn-primary' : 'btn-outline btn-neutral'
-                    ]"
-                    @click="toggleParam(group.key, option)"
-                  >
-                    {{ option }}
-                  </button>
-                </div>
-              </label>
             </div>
 
             <label class="form-control rounded-box border border-base-300/60 bg-base-200/30 p-4">
@@ -551,30 +1105,57 @@ watch(() => props.pendingFavorite, (record) => {
                 <button type="button" class="btn btn-ghost btn-xs" @click="clearStyles">清空</button>
               </div>
               <div class="space-y-3">
-                <div v-for="group in styleGroups" :key="group.title" class="space-y-2">
+                <div class="flex flex-wrap gap-1.5">
                   <button
+                    v-for="style in quickStyleOptions"
+                    :key="style"
                     type="button"
-                    class="flex items-center gap-1.5 text-[11px] font-bold text-base-content/40 uppercase tracking-wider hover:text-base-content/70 transition-colors"
-                    @click="toggleStyleGroup(group.title)"
+                    :class="[
+                      'btn btn-xs',
+                      isStyleSelected(style) ? 'btn-primary' : 'btn-outline btn-neutral'
+                    ]"
+                    @click="toggleStyle(style)"
                   >
-                    <font-awesome-icon :icon="isStyleGroupCollapsed(group.title) ? 'chevron-down' : 'chevron-up'" class="w-2.5 h-2.5" />
-                    {{ group.title }}
+                    {{ style }}
                   </button>
-                  <div v-if="!isStyleGroupCollapsed(group.title)" class="flex flex-wrap gap-1.5">
+                </div>
+
+                <button
+                  type="button"
+                  class="flex items-center gap-1.5 text-[11px] font-bold text-base-content/40 uppercase tracking-wider hover:text-base-content/70 transition-colors"
+                  @click="toggleDetailedStyles"
+                >
+                  <font-awesome-icon :icon="detailedStylesCollapsed ? 'chevron-down' : 'chevron-up'" class="w-2.5 h-2.5" />
+                  更多细分风格
+                </button>
+
+                <div v-if="!detailedStylesCollapsed" class="space-y-3">
+                  <div v-for="group in styleGroups" :key="group.title" class="space-y-2">
                     <button
-                      v-for="style in group.options"
-                      :key="style"
                       type="button"
-                      :class="[
-                        'btn btn-xs',
-                        isStyleSelected(style) ? 'btn-primary' : 'btn-outline btn-neutral'
-                      ]"
-                      @click="toggleStyle(style)"
+                      class="flex items-center gap-1.5 text-[11px] font-bold text-base-content/40 uppercase tracking-wider hover:text-base-content/70 transition-colors"
+                      @click="toggleStyleGroup(group.title)"
                     >
-                      {{ style }}
+                      <font-awesome-icon :icon="isStyleGroupCollapsed(group.title) ? 'chevron-down' : 'chevron-up'" class="w-2.5 h-2.5" />
+                      {{ group.title }}
                     </button>
+                    <div v-if="!isStyleGroupCollapsed(group.title)" class="flex flex-wrap gap-1.5">
+                      <button
+                        v-for="style in group.options"
+                        :key="style"
+                        type="button"
+                        :class="[
+                          'btn btn-xs',
+                          isStyleSelected(style) ? 'btn-primary' : 'btn-outline btn-neutral'
+                        ]"
+                        @click="toggleStyle(style)"
+                      >
+                        {{ style }}
+                      </button>
+                    </div>
                   </div>
                 </div>
+
               </div>
               <p class="text-xs text-base-content/50 mt-2 leading-relaxed">
                 当前组合：<span class="font-semibold text-base-content">{{ selectedStyleText || '未选择，生成时使用通用流行音乐' }}</span>
@@ -583,7 +1164,7 @@ watch(() => props.pendingFavorite, (record) => {
 
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <label
-                v-for="group in parameterGroups.filter(item => item.key !== 'language' && item.key !== 'rhymeScheme')"
+                v-for="group in parameterGroups.filter(item => basicParamKeys.includes(item.key) && item.key !== 'language')"
                 :key="group.key"
                 class="form-control rounded-box border border-base-300/60 bg-base-200/30 p-4"
               >
@@ -610,6 +1191,52 @@ watch(() => props.pendingFavorite, (record) => {
                 </p>
               </label>
             </div>
+
+            <section class="rounded-box border border-base-300/60 bg-base-200/30 p-4">
+              <button
+                type="button"
+                class="flex w-full items-center justify-between gap-3 text-left"
+                @click="advancedParamsCollapsed = !advancedParamsCollapsed"
+              >
+                <div>
+                  <h4 class="font-semibold text-sm">高级参数</h4>
+                  <p class="text-xs text-base-content/50 mt-1">速度、律动、调性、结构、编曲和歌词细节</p>
+                </div>
+                <span class="btn btn-ghost btn-xs btn-square">
+                  <font-awesome-icon :icon="advancedParamsCollapsed ? 'chevron-down' : 'chevron-up'" class="w-3 h-3" />
+                </span>
+              </button>
+
+              <div v-if="!advancedParamsCollapsed" class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
+                <label
+                  v-for="group in parameterGroups.filter(item => advancedParamKeys.includes(item.key))"
+                  :key="group.key"
+                  class="form-control rounded-box border border-base-300/60 bg-base-100/70 p-4"
+                >
+                  <div class="label py-1">
+                    <span class="label-text font-medium text-sm">{{ group.title }}</span>
+                    <button type="button" class="btn btn-ghost btn-xs" @click="clearParam(group.key)">清空</button>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button
+                      v-for="option in group.options"
+                      :key="option"
+                      type="button"
+                      :class="[
+                        'btn btn-xs',
+                        isParamSelected(group.key, option) ? 'btn-primary' : 'btn-outline btn-neutral'
+                      ]"
+                      @click="toggleParam(group.key, option)"
+                    >
+                      {{ option }}
+                    </button>
+                  </div>
+                  <p class="text-xs text-base-content/50 mt-1">
+                    当前：<span class="font-semibold text-base-content">{{ selectedParamText[group.key] }}</span>
+                  </p>
+                </label>
+              </div>
+            </section>
           </div>
         </div>
       </section>
@@ -629,10 +1256,15 @@ watch(() => props.pendingFavorite, (record) => {
           <textarea v-model="request.idea" class="textarea textarea-bordered min-h-60 leading-7 text-sm" />
 
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="btn btn-outline btn-neutral btn-xs" @click="quickPatch('调整方向：副歌更抓耳，旋律感更强。')">副歌加强</button>
-            <button type="button" class="btn btn-outline btn-neutral btn-xs" @click="quickPatch('调整方向：歌词更口语、更像真实的人在说话。')">更口语</button>
-            <button type="button" class="btn btn-outline btn-neutral btn-xs" @click="quickPatch('调整方向：制作更电影感，末段更开阔。')">电影感</button>
-            <button type="button" class="btn btn-outline btn-neutral btn-xs" @click="quickPatch('调整方向：更商业、更适合短视频传播。')">更商业</button>
+            <button
+              v-for="control in naturalControls"
+              :key="control"
+              type="button"
+              class="btn btn-outline btn-neutral btn-xs"
+              @click="applyNaturalControl(control)"
+            >
+              {{ control }}
+            </button>
           </div>
 
           <div class="form-control">
@@ -691,24 +1323,95 @@ watch(() => props.pendingFavorite, (record) => {
             </div>
 
             <div class="space-y-4">
+              <div
+                v-if="result.qualityChecks.length > 0 || result.revisionSuggestions.length > 0"
+                class="grid grid-cols-1 xl:grid-cols-2 gap-4"
+              >
+                <div v-if="result.qualityChecks.length > 0" class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">
+                  <h4 class="font-semibold mb-2">质量检查</h4>
+                  <ul class="space-y-1.5 text-sm text-base-content/70">
+                    <li v-for="item in result.qualityChecks" :key="item" class="flex gap-2">
+                      <font-awesome-icon icon="check-circle" class="w-3.5 h-3.5 mt-1 text-success shrink-0" />
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div v-if="result.revisionSuggestions.length > 0" class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">
+                  <h4 class="font-semibold mb-2">下一步建议</h4>
+                  <div class="flex flex-wrap gap-1.5 mb-3">
+                    <button
+                      v-for="item in result.revisionSuggestions"
+                      :key="item"
+                      type="button"
+                      class="btn btn-outline btn-neutral btn-xs"
+                      @click="iterateWithInstruction(item)"
+                    >
+                      {{ item }}
+                    </button>
+                  </div>
+                  <div class="flex flex-wrap gap-1.5">
+                    <button type="button" class="btn btn-ghost btn-xs" @click="iterateWithInstruction('只重写副歌，主歌叙事和整体风格保持不变。')">重写副歌</button>
+                    <button type="button" class="btn btn-ghost btn-xs" @click="iterateWithInstruction('保留歌词，只优化音乐 AI prompt 和制作描述。')">只改 Prompt</button>
+                    <button type="button" class="btn btn-ghost btn-xs" @click="iterateWithInstruction('压缩为短视频版本，副歌更早进入，保留最抓耳的 30-60 秒。')">短视频版</button>
+                    <button type="button" class="btn btn-ghost btn-xs" @click="iterateWithInstruction('降低 AI 味，歌词更像真实生活表达，减少空泛形容词。')">降低 AI 味</button>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="result.variants.length > 0" class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">
+                <h4 class="font-semibold mb-3">可继续打磨的方向</h4>
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-3">
+                  <button
+                    v-for="variant in result.variants"
+                    :key="variant.title"
+                    type="button"
+                    class="text-left rounded-lg border border-base-300/60 bg-base-100/70 p-3 hover:bg-base-100 transition-colors"
+                    @click="continueWithVariant(variant)"
+                  >
+                    <span class="font-semibold text-sm">{{ variant.title }}</span>
+                    <p class="text-xs text-base-content/60 mt-1 leading-relaxed">{{ variant.direction }}</p>
+                    <p class="text-xs text-primary mt-2 line-clamp-2">{{ variant.hookLine }}</p>
+                  </button>
+                </div>
+              </div>
+
               <div class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">
                 <div class="flex items-center justify-between mb-2">
                   <h4 class="font-semibold">歌词</h4>
-                  <button type="button" class="btn btn-ghost btn-xs gap-1" @click="copyText('歌词', result.lyrics)">
-                    <font-awesome-icon :icon="copied === '歌词' ? 'check' : 'copy'" class="w-3 h-3" />
-                    {{ copied === '歌词' ? '已复制' : '复制' }}
-                  </button>
+                  <div class="flex flex-wrap justify-end gap-1.5">
+                    <button type="button" class="btn btn-primary btn-xs gap-1" @click="copyText('纯歌词', lyricText)">
+                      <font-awesome-icon :icon="copied === '纯歌词' ? 'check' : 'copy'" class="w-3 h-3" />
+                      {{ copied === '纯歌词' ? '已复制' : '纯歌词' }}
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-xs gap-1" @click="copyText('歌词', result.lyrics)">
+                      <font-awesome-icon :icon="copied === '歌词' ? 'check' : 'copy'" class="w-3 h-3" />
+                      {{ copied === '歌词' ? '已复制' : '原始歌词' }}
+                    </button>
+                  </div>
                 </div>
-                <pre class="whitespace-pre-wrap break-words text-sm leading-7 font-mono">{{ result.lyrics }}</pre>
+                <pre class="whitespace-pre-wrap break-words text-sm leading-7 font-mono">{{ lyricText }}</pre>
               </div>
 
               <div class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">
                 <div class="flex items-center justify-between mb-2">
                   <h4 class="font-semibold">Prompt</h4>
-                  <button type="button" class="btn btn-primary btn-xs gap-1" @click="copyText('Prompt', promptText)">
-                    <font-awesome-icon :icon="copied === 'Prompt' ? 'check' : 'copy'" class="w-3 h-3" />
-                    {{ copied === 'Prompt' ? '已复制' : '一键复制' }}
-                  </button>
+                  <div class="flex flex-wrap justify-end gap-1.5">
+                    <button type="button" class="btn btn-primary btn-xs gap-1" @click="copyText('Prompt 全部', promptText)">
+                      <font-awesome-icon :icon="copied === 'Prompt 全部' ? 'check' : 'copy'" class="w-3 h-3" />
+                      {{ copied === 'Prompt 全部' ? '已复制' : '全部' }}
+                    </button>
+                    <button
+                      v-for="option in platformCopyOptions"
+                      :key="option.label"
+                      type="button"
+                      class="btn btn-outline btn-neutral btn-xs gap-1"
+                      @click="copyText(option.label, platformPromptText(option.key))"
+                    >
+                      <font-awesome-icon :icon="copied === option.label ? 'check' : 'copy'" class="w-3 h-3" />
+                      {{ copied === option.label ? '已复制' : option.label }}
+                    </button>
+                  </div>
                 </div>
                 <pre class="whitespace-pre-wrap break-words text-sm leading-7 font-mono">{{ promptText }}</pre>
               </div>

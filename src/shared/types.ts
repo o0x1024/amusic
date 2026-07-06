@@ -41,6 +41,9 @@ export interface AppSettings {
 export interface SongRequest {
   idea: string
   referenceLyrics: string
+  generationMode: string
+  iterationInstruction: string
+  hotLyricRule: string
   language: string
   style: string
   mood: string
@@ -69,7 +72,22 @@ export interface SongResult {
   arrangement: string
   vocalPrompt: string
   fullPrompt: string
+  sunoPrompt: string
+  udioPrompt: string
+  miaoxiangPrompt: string
+  lyricOnly: string
   negativePrompt: string
+  qualityChecks: string[]
+  revisionSuggestions: string[]
+  variants: SongVariant[]
+}
+
+export interface SongVariant {
+  title: string
+  direction: string
+  hookLine: string
+  stylePrompt: string
+  revisionFocus: string
 }
 
 export interface HitLabRequest {
