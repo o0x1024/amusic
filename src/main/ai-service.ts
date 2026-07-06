@@ -443,17 +443,9 @@ ${request.idea}
 
 ## 歌词参数
 
-- 语言：${request.language}
-- 生成模式：${request.generationMode || '生成 1 个精修版'}
 - 迭代指令：${request.iterationInstruction || '无'}
-- 热榜歌词结构：${request.hotLyricRule || '不使用热榜规则'}
-- 情绪状态：${request.mood}
-- 氛围感：${request.atmosphere}
-- 歌词密度：${request.lyricDensity}
-- 押韵模式：${request.rhymeScheme}
-- 是否押韵：${request.rhyme ? '是' : '否'}
-- 使用场景：${request.useCase}
-- 歌曲长度：${request.songLength}
+- 语言：根据创作意图自动判断，默认中文
+- 形式：完整歌曲歌词草稿，结构清楚，方便后续反推音乐 Prompt
 ## 生成要求
 
 请先把歌词本身写扎实。不要输出任何风格 prompt、制作 prompt、编曲 prompt 或音乐平台 prompt。`
@@ -497,26 +489,11 @@ ${request.lyrics}
 
 ## Prompt 生成参数
 
-- 语言：${request.language}
-- 偏好风格：${request.style || '根据歌词自动判断'}
-- 情绪状态：${request.mood || '根据歌词自动判断'}
-- 氛围感：${request.atmosphere || '根据歌词自动判断'}
-- 人声特质：${request.vocal || '根据歌词自动判断'}
-- 演唱形式：${request.vocalArrangement || '独唱'}
-- 速度：${request.tempo || '根据歌词自动判断'}
-- 律动感：${request.groove || '根据歌词自动判断'}
-- 调性：${request.key || '根据歌词自动判断'}
-- 能量曲线：${request.energyCurve || '根据歌词自动判断'}
-- 编曲元素：${request.arrangement || '无特殊要求'}
-- 歌曲结构：${request.structure || '根据歌词段落判断'}
-- 目标平台：${request.platform || '通用音乐 AI'}
-- 使用场景：${request.useCase || '完整歌曲'}
-- 歌曲长度：${request.songLength || '根据歌词判断'}
 - 约束：${request.constraints || '歌词不要改写；Prompt 使用英文；避免模仿具体歌手或现有作品'}
 
 ## 输出要求
 
-不要重写歌词。请根据歌词反推音乐制作方案，并输出英文 Prompt。`
+不要重写歌词。不要依赖外部创作参数。请只根据歌词的语言、情绪、句式密度、段落结构、Hook 和画面感，自动反推音乐制作方案，并输出英文 Prompt。`
 
   const result = await chat(config, systemPrompt, prompt)
   if (!result.success) throw new Error(result.error ?? 'AI 生成 Prompt 失败')

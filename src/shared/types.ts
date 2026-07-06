@@ -91,17 +91,7 @@ export interface SongVariant {
 
 export interface LyricsDraftRequest {
   idea: string
-  generationMode: string
   iterationInstruction: string
-  hotLyricRule: string
-  language: string
-  mood: string
-  atmosphere: string
-  lyricDensity: string
-  rhymeScheme: string
-  useCase: string
-  songLength: string
-  rhyme: boolean
 }
 
 export interface LyricsDraftResult {
@@ -119,21 +109,6 @@ export interface PromptFromLyricsRequest {
   title: string
   concept: string
   lyrics: string
-  language: string
-  style: string
-  mood: string
-  atmosphere: string
-  vocal: string
-  vocalArrangement: string
-  tempo: string
-  groove: string
-  key: string
-  energyCurve: string
-  arrangement: string
-  structure: string
-  platform: string
-  useCase: string
-  songLength: string
   constraints: string
 }
 

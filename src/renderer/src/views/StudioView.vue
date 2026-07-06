@@ -403,6 +403,8 @@ const copied = ref('')
 const lyricsDraft = ref<LyricsDraftResult | null>(null)
 const editableLyrics = ref('')
 const activeWorkflowTab = ref<'complete' | 'lyricsFirst'>('complete')
+const lyricsFirstIdea = ref('写一首适合先打磨歌词的歌：具体生活场景、清晰情绪、一个能反复唱的核心句。')
+const promptFromLyricsConstraints = ref('歌词不要改写；Prompt 使用英文；根据歌词自动判断流派、BPM、人声、编曲和制作质感。')
 const paramsCollapsed = ref(false)
 const advancedParamsCollapsed = ref(true)
 const justFavorited = ref(false)
@@ -672,25 +674,15 @@ async function generate() {
 }
 
 async function generateLyricsDraft() {
-  if (!request.value.idea.trim() || lyricsDraftLoading.value || promptFromLyricsLoading.value) return
+  if (!lyricsFirstIdea.value.trim() || lyricsDraftLoading.value || promptFromLyricsLoading.value) return
   lyricsDraftLoading.value = true
   error.value = ''
   copied.value = ''
   result.value = null
   try {
     const draft = await window.amusic.invoke('lyrics:generate', {
-      idea: request.value.idea,
-      generationMode: request.value.generationMode,
-      iterationInstruction: request.value.iterationInstruction,
-      hotLyricRule: request.value.hotLyricRule,
-      language: request.value.language,
-      mood: request.value.mood,
-      atmosphere: request.value.atmosphere,
-      lyricDensity: request.value.lyricDensity,
-      rhymeScheme: request.value.rhymeScheme,
-      useCase: request.value.useCase,
-      songLength: request.value.songLength,
-      rhyme: request.value.rhyme
+      idea: lyricsFirstIdea.value,
+      iterationInstruction: promptFromLyricsConstraints.value
     })
     lyricsDraft.value = draft
     editableLyrics.value = normalizeLyricText(draft.lyrics)
@@ -711,34 +703,19 @@ async function generatePromptFromLyrics() {
   try {
     const generated = await window.amusic.invoke('lyrics:prompt', {
       title: lyricsDraft.value?.title || '',
-      concept: lyricsDraft.value?.concept || request.value.idea,
+      concept: lyricsDraft.value?.concept || lyricsFirstIdea.value,
       lyrics,
-      language: request.value.language,
-      style: request.value.style,
-      mood: request.value.mood,
-      atmosphere: request.value.atmosphere,
-      vocal: request.value.vocal,
-      vocalArrangement: request.value.vocalArrangement,
-      tempo: request.value.tempo,
-      groove: request.value.groove,
-      key: request.value.key,
-      energyCurve: request.value.energyCurve,
-      arrangement: request.value.arrangement,
-      structure: request.value.structure,
-      platform: request.value.platform,
-      useCase: request.value.useCase,
-      songLength: request.value.songLength,
-      constraints: request.value.iterationInstruction || '歌词不要改写；Prompt 使用英文；避免模仿具体歌手或现有作品'
+      constraints: promptFromLyricsConstraints.value
     })
     result.value = completeSongResult(generated)
     if (result.value) {
       const record: HistoryRecord = {
         id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
         createdAt: Date.now(),
-        idea: request.value.idea,
-        styleTags: [...selectedStyleTags.value],
-        params: JSON.parse(JSON.stringify(toRaw(selectedParams.value))),
-        rhyme: rhymeChoice.value === '需要押韵',
+        idea: lyricsFirstIdea.value,
+        styleTags: [],
+        params: {},
+        rhyme: false,
         result: JSON.parse(JSON.stringify(toRaw(result.value)))
       }
       history.value = await window.amusic.invoke('history:add', JSON.parse(JSON.stringify(record)))
@@ -914,6 +891,27 @@ watch(() => props.pendingFavorite, (record) => {
 
     <div class="space-y-3">
       <section class="card bg-base-100 shadow-sm border border-base-300/60">
+        <div class="card-body p-4">
+          <div class="tabs tabs-boxed bg-base-200/60 w-fit">
+            <button
+              type="button"
+              :class="['tab tab-sm', activeWorkflowTab === 'complete' ? 'tab-active' : '']"
+              @click="activeWorkflowTab = 'complete'"
+            >
+              一次性生成
+            </button>
+            <button
+              type="button"
+              :class="['tab tab-sm', activeWorkflowTab === 'lyricsFirst' ? 'tab-active' : '']"
+              @click="activeWorkflowTab = 'lyricsFirst'"
+            >
+              先歌词后 Prompt
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="activeWorkflowTab === 'complete'" class="card bg-base-100 shadow-sm border border-base-300/60">
         <div class="card-body p-5">
           <button
             type="button"
@@ -1341,36 +1339,31 @@ watch(() => props.pendingFavorite, (record) => {
             </div>
           </div>
 
-          <textarea v-model="request.idea" class="textarea textarea-bordered min-h-60 leading-7 text-sm" />
+          <template v-if="activeWorkflowTab === 'complete'">
+            <textarea v-model="request.idea" class="textarea textarea-bordered min-h-60 leading-7 text-sm" />
 
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="control in naturalControls"
-              :key="control"
-              type="button"
-              class="btn btn-outline btn-neutral btn-xs"
-              @click="applyNaturalControl(control)"
-            >
-              {{ control }}
-            </button>
-          </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="control in naturalControls"
+                :key="control"
+                type="button"
+                class="btn btn-outline btn-neutral btn-xs"
+                @click="applyNaturalControl(control)"
+              >
+                {{ control }}
+              </button>
+            </div>
+          </template>
 
-          <div class="tabs tabs-boxed bg-base-200/60 w-fit">
-            <button
-              type="button"
-              :class="['tab tab-sm', activeWorkflowTab === 'complete' ? 'tab-active' : '']"
-              @click="activeWorkflowTab = 'complete'"
-            >
-              一次性生成
-            </button>
-            <button
-              type="button"
-              :class="['tab tab-sm', activeWorkflowTab === 'lyricsFirst' ? 'tab-active' : '']"
-              @click="activeWorkflowTab = 'lyricsFirst'"
-            >
-              先歌词后 Prompt
-            </button>
-          </div>
+          <template v-else>
+            <label class="form-control">
+              <span class="label py-1">
+                <span class="label-text font-medium text-sm">歌词创意</span>
+                <span class="label-text-alt text-xs text-base-content/40">不使用创作参数，只写清楚歌词题材和情绪</span>
+              </span>
+              <textarea v-model="lyricsFirstIdea" class="textarea textarea-bordered min-h-44 leading-7 text-sm" />
+            </label>
+          </template>
 
           <section v-if="activeWorkflowTab === 'complete'" class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">
             <div class="flex items-start justify-between gap-3">
@@ -1390,13 +1383,13 @@ watch(() => props.pendingFavorite, (record) => {
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h4 class="font-semibold">先生成歌词，再生成 Prompt</h4>
-                <p class="text-xs text-base-content/50 mt-1">先生成并编辑歌词，再让 AI 根据最终歌词反推英文音乐 Prompt</p>
+                <p class="text-xs text-base-content/50 mt-1">此流程不读取创作参数；AI 只根据歌词本身反推英文音乐 Prompt</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
                   class="btn btn-outline btn-sm gap-2"
-                  :disabled="!request.idea.trim() || lyricsDraftLoading || promptFromLyricsLoading"
+                  :disabled="!lyricsFirstIdea.trim() || lyricsDraftLoading || promptFromLyricsLoading"
                   @click="generateLyricsDraft"
                 >
                   <span v-if="lyricsDraftLoading" class="loading loading-spinner loading-xs"></span>
@@ -1445,13 +1438,21 @@ watch(() => props.pendingFavorite, (record) => {
               />
             </label>
 
+            <label class="form-control">
+              <span class="label py-1">
+                <span class="label-text font-medium text-sm">Prompt 约束</span>
+                <span class="label-text-alt text-xs text-base-content/40">可选，只影响歌词反推 Prompt</span>
+              </span>
+              <input v-model="promptFromLyricsConstraints" class="input input-bordered input-sm" />
+            </label>
+
             <div v-if="lyricsDraft?.revisionSuggestions.length" class="flex flex-wrap gap-1.5">
               <button
                 v-for="item in lyricsDraft.revisionSuggestions"
                 :key="item"
                 type="button"
                 class="btn btn-ghost btn-xs"
-                @click="request.iterationInstruction = item"
+                @click="promptFromLyricsConstraints = item"
               >
                 {{ item }}
               </button>
