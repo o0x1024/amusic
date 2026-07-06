@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, toRaw, watch } from 'vue'
-import type { FavoriteRecord, HistoryRecord, SongRequest, SongResult } from '../../../shared/types'
+import type { FavoriteRecord, HistoryRecord, LyricsDraftResult, SongRequest, SongResult } from '../../../shared/types'
 
 const props = defineProps<{ pendingFavorite: FavoriteRecord | null }>()
 const emit = defineEmits<{ 'open-settings': [] }>()
@@ -371,7 +371,6 @@ const rhymeChoice = ref<'需要押韵' | '不强制押韵'>('需要押韵')
 
 const request = ref<SongRequest>({
   idea: '用简单直白的短句写爱恨遗憾、独处细碎情绪，搭配易抓耳重复句，贴合短视频氛围感，不用复杂修辞。',
-  referenceLyrics: '',
   generationMode: '生成 1 个精修版',
   iterationInstruction: '',
   hotLyricRule: '',
@@ -397,8 +396,13 @@ const request = ref<SongRequest>({
 
 const result = ref<SongResult | null>(null)
 const loading = ref(false)
+const lyricsDraftLoading = ref(false)
+const promptFromLyricsLoading = ref(false)
 const error = ref('')
 const copied = ref('')
+const lyricsDraft = ref<LyricsDraftResult | null>(null)
+const editableLyrics = ref('')
+const activeWorkflowTab = ref<'complete' | 'lyricsFirst'>('complete')
 const paramsCollapsed = ref(false)
 const advancedParamsCollapsed = ref(true)
 const justFavorited = ref(false)
@@ -667,6 +671,85 @@ async function generate() {
   }
 }
 
+async function generateLyricsDraft() {
+  if (!request.value.idea.trim() || lyricsDraftLoading.value || promptFromLyricsLoading.value) return
+  lyricsDraftLoading.value = true
+  error.value = ''
+  copied.value = ''
+  result.value = null
+  try {
+    const draft = await window.amusic.invoke('lyrics:generate', {
+      idea: request.value.idea,
+      generationMode: request.value.generationMode,
+      iterationInstruction: request.value.iterationInstruction,
+      hotLyricRule: request.value.hotLyricRule,
+      language: request.value.language,
+      mood: request.value.mood,
+      atmosphere: request.value.atmosphere,
+      lyricDensity: request.value.lyricDensity,
+      rhymeScheme: request.value.rhymeScheme,
+      useCase: request.value.useCase,
+      songLength: request.value.songLength,
+      rhyme: request.value.rhyme
+    })
+    lyricsDraft.value = draft
+    editableLyrics.value = normalizeLyricText(draft.lyrics)
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    lyricsDraftLoading.value = false
+  }
+}
+
+async function generatePromptFromLyrics() {
+  const lyrics = editableLyrics.value.trim()
+  if (!lyrics || promptFromLyricsLoading.value || lyricsDraftLoading.value) return
+  promptFromLyricsLoading.value = true
+  error.value = ''
+  copied.value = ''
+  result.value = null
+  try {
+    const generated = await window.amusic.invoke('lyrics:prompt', {
+      title: lyricsDraft.value?.title || '',
+      concept: lyricsDraft.value?.concept || request.value.idea,
+      lyrics,
+      language: request.value.language,
+      style: request.value.style,
+      mood: request.value.mood,
+      atmosphere: request.value.atmosphere,
+      vocal: request.value.vocal,
+      vocalArrangement: request.value.vocalArrangement,
+      tempo: request.value.tempo,
+      groove: request.value.groove,
+      key: request.value.key,
+      energyCurve: request.value.energyCurve,
+      arrangement: request.value.arrangement,
+      structure: request.value.structure,
+      platform: request.value.platform,
+      useCase: request.value.useCase,
+      songLength: request.value.songLength,
+      constraints: request.value.iterationInstruction || '歌词不要改写；Prompt 使用英文；避免模仿具体歌手或现有作品'
+    })
+    result.value = completeSongResult(generated)
+    if (result.value) {
+      const record: HistoryRecord = {
+        id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: Date.now(),
+        idea: request.value.idea,
+        styleTags: [...selectedStyleTags.value],
+        params: JSON.parse(JSON.stringify(toRaw(selectedParams.value))),
+        rhyme: rhymeChoice.value === '需要押韵',
+        result: JSON.parse(JSON.stringify(toRaw(result.value)))
+      }
+      history.value = await window.amusic.invoke('history:add', JSON.parse(JSON.stringify(record)))
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    promptFromLyricsLoading.value = false
+  }
+}
+
 async function copyText(label: string, text: string) {
   await navigator.clipboard.writeText(text)
   copied.value = label
@@ -723,6 +806,8 @@ async function loadHistory() {
 
 function viewHistory(record: HistoryRecord) {
   result.value = completeSongResult(record.result)
+  editableLyrics.value = normalizeLyricText(result.value.lyricOnly || result.value.lyrics)
+  lyricsDraft.value = null
   request.value.idea = record.idea
   request.value.hotLyricRule = ''
   selectedStyleTags.value = [...record.styleTags]
@@ -783,6 +868,7 @@ async function collectFavorite() {
 }
 
 function applyFavorite(record: FavoriteRecord) {
+  const favoriteResult = completeSongResult(record.result)
   selectedStyleTags.value = [...record.styleTags]
   const defaults: Record<ParamKey, string[]> = {
     language: [], mood: [], atmosphere: [], vocal: [], vocalArrangement: [],
@@ -799,6 +885,8 @@ function applyFavorite(record: FavoriteRecord) {
   rhymeChoice.value = record.rhyme ? '需要押韵' : '不强制押韵'
   request.value.idea = record.idea
   request.value.hotLyricRule = ''
+  editableLyrics.value = normalizeLyricText(favoriteResult.lyricOnly || favoriteResult.lyrics)
+  lyricsDraft.value = null
   syncStyleRequest()
   for (const key of Object.keys(selectedParams.value) as ParamKey[]) {
     syncParamRequest(key)
@@ -1267,26 +1355,110 @@ watch(() => props.pendingFavorite, (record) => {
             </button>
           </div>
 
-          <div class="form-control">
-            <label class="label py-1">
-              <span class="label-text font-medium text-sm">参考歌词（可选）</span>
-              <span class="label-text-alt text-xs text-base-content/40">填入后 AI 将参考其结构、句式和情绪进行生成</span>
-            </label>
-            <textarea
-              v-model="request.referenceLyrics"
-              class="textarea textarea-bordered min-h-40 leading-7 text-sm font-mono"
-              placeholder="粘贴一段你喜欢的歌词，AI 会参考它的段落结构、句式节奏和情绪走向来创作…"
-            />
+          <div class="tabs tabs-boxed bg-base-200/60 w-fit">
+            <button
+              type="button"
+              :class="['tab tab-sm', activeWorkflowTab === 'complete' ? 'tab-active' : '']"
+              @click="activeWorkflowTab = 'complete'"
+            >
+              一次性生成
+            </button>
+            <button
+              type="button"
+              :class="['tab tab-sm', activeWorkflowTab === 'lyricsFirst' ? 'tab-active' : '']"
+              @click="activeWorkflowTab = 'lyricsFirst'"
+            >
+              先歌词后 Prompt
+            </button>
           </div>
 
-          <div class="flex items-center gap-2 pt-1">
-            <button class="btn btn-primary btn-sm gap-2" type="button" :disabled="!canGenerate" @click="generate">
-              <span v-if="loading" class="loading loading-spinner loading-xs"></span>
-              <font-awesome-icon v-else icon="music" class="w-3.5 h-3.5" />
-              {{ loading ? '生成中...' : '生成歌词与 Prompt' }}
-            </button>
-            <p v-if="error" class="text-error text-sm font-medium">{{ error }}</p>
-          </div>
+          <section v-if="activeWorkflowTab === 'complete'" class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h4 class="font-semibold">一次性生成歌词与 Prompt</h4>
+                <p class="text-xs text-base-content/50 mt-1">根据灵感和当前参数直接生成完整歌词、英文 Prompt 与平台复制项</p>
+              </div>
+              <button class="btn btn-primary btn-sm gap-2 shrink-0" type="button" :disabled="!canGenerate" @click="generate">
+                <span v-if="loading" class="loading loading-spinner loading-xs"></span>
+                <font-awesome-icon v-else icon="music" class="w-3.5 h-3.5" />
+                {{ loading ? '生成中...' : '生成歌词与 Prompt' }}
+              </button>
+            </div>
+          </section>
+
+          <section v-else class="rounded-xl border border-base-300/60 bg-base-200/30 p-4 space-y-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h4 class="font-semibold">先生成歌词，再生成 Prompt</h4>
+                <p class="text-xs text-base-content/50 mt-1">先生成并编辑歌词，再让 AI 根据最终歌词反推英文音乐 Prompt</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm gap-2"
+                  :disabled="!request.idea.trim() || lyricsDraftLoading || promptFromLyricsLoading"
+                  @click="generateLyricsDraft"
+                >
+                  <span v-if="lyricsDraftLoading" class="loading loading-spinner loading-xs"></span>
+                  <font-awesome-icon v-else icon="feather-alt" class="w-3.5 h-3.5" />
+                  {{ lyricsDraftLoading ? '写歌词中...' : '先生成歌词' }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm gap-2"
+                  :disabled="!editableLyrics.trim() || lyricsDraftLoading || promptFromLyricsLoading"
+                  @click="generatePromptFromLyrics"
+                >
+                  <span v-if="promptFromLyricsLoading" class="loading loading-spinner loading-xs"></span>
+                  <font-awesome-icon v-else icon="wand-magic-sparkles" class="w-3.5 h-3.5" />
+                  {{ promptFromLyricsLoading ? '生成 Prompt 中...' : '歌词生成 Prompt' }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="lyricsDraft" class="grid grid-cols-1 xl:grid-cols-3 gap-3">
+              <div class="rounded-lg border border-base-300/60 bg-base-100/70 p-3">
+                <p class="text-xs text-base-content/40 mb-1">标题 / 概念</p>
+                <p class="font-semibold">{{ lyricsDraft.title }}</p>
+                <p class="text-xs text-base-content/60 mt-1 leading-relaxed">{{ lyricsDraft.concept }}</p>
+              </div>
+              <div class="rounded-lg border border-base-300/60 bg-base-100/70 p-3">
+                <p class="text-xs text-base-content/40 mb-1">Hook / 情绪曲线</p>
+                <p class="text-sm font-semibold">{{ lyricsDraft.hookLine }}</p>
+                <p class="text-xs text-base-content/60 mt-1 leading-relaxed">{{ lyricsDraft.emotionCurve }}</p>
+              </div>
+              <div class="rounded-lg border border-base-300/60 bg-base-100/70 p-3">
+                <p class="text-xs text-base-content/40 mb-1">传播片段</p>
+                <p class="text-xs text-base-content/70 leading-relaxed">{{ lyricsDraft.shortVideoMoment }}</p>
+              </div>
+            </div>
+
+            <label class="form-control">
+              <span class="label py-1">
+                <span class="label-text font-medium text-sm">可编辑歌词</span>
+                <span class="label-text-alt text-xs text-base-content/40">这里的文本会作为 Prompt 生成依据</span>
+              </span>
+              <textarea
+                v-model="editableLyrics"
+                class="textarea textarea-bordered min-h-72 leading-7 text-sm font-mono"
+                placeholder="点击「先生成歌词」后会填入草稿；也可以直接粘贴你已有的歌词，再点击「歌词生成 Prompt」。"
+              />
+            </label>
+
+            <div v-if="lyricsDraft?.revisionSuggestions.length" class="flex flex-wrap gap-1.5">
+              <button
+                v-for="item in lyricsDraft.revisionSuggestions"
+                :key="item"
+                type="button"
+                class="btn btn-ghost btn-xs"
+                @click="request.iterationInstruction = item"
+              >
+                {{ item }}
+              </button>
+            </div>
+          </section>
+
+          <p v-if="error" class="text-error text-sm font-medium">{{ error }}</p>
         </div>
       </section>
 

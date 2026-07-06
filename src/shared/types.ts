@@ -40,7 +40,6 @@ export interface AppSettings {
 
 export interface SongRequest {
   idea: string
-  referenceLyrics: string
   generationMode: string
   iterationInstruction: string
   hotLyricRule: string
@@ -88,6 +87,54 @@ export interface SongVariant {
   hookLine: string
   stylePrompt: string
   revisionFocus: string
+}
+
+export interface LyricsDraftRequest {
+  idea: string
+  generationMode: string
+  iterationInstruction: string
+  hotLyricRule: string
+  language: string
+  mood: string
+  atmosphere: string
+  lyricDensity: string
+  rhymeScheme: string
+  useCase: string
+  songLength: string
+  rhyme: boolean
+}
+
+export interface LyricsDraftResult {
+  title: string
+  concept: string
+  lyrics: string
+  hookLine: string
+  lyricAnalysis: string
+  emotionCurve: string
+  shortVideoMoment: string
+  revisionSuggestions: string[]
+}
+
+export interface PromptFromLyricsRequest {
+  title: string
+  concept: string
+  lyrics: string
+  language: string
+  style: string
+  mood: string
+  atmosphere: string
+  vocal: string
+  vocalArrangement: string
+  tempo: string
+  groove: string
+  key: string
+  energyCurve: string
+  arrangement: string
+  structure: string
+  platform: string
+  useCase: string
+  songLength: string
+  constraints: string
 }
 
 export interface HitLabRequest {
