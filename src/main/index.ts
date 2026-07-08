@@ -1,6 +1,9 @@
 import { app, BrowserWindow, dialog } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
+import { createLogger } from './logger'
+
+const logger = createLogger('main')
 
 let mainWindow: BrowserWindow | null = null
 
@@ -27,6 +30,7 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.on('did-fail-load', (_event, code, description, url) => {
+    logger.error('页面加载失败', { code, description, url })
     dialog.showErrorBox('页面加载失败', `无法加载应用界面 (${code}): ${description}\n${url}`)
   })
 
@@ -38,6 +42,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  logger.info('应用启动')
   registerIpcHandlers()
   createWindow()
 
@@ -48,5 +53,6 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
+  logger.info('所有窗口已关闭')
   if (process.platform !== 'darwin') app.quit()
 })

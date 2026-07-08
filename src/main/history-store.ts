@@ -2,7 +2,9 @@ import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import type { HistoryRecord } from '../shared/types'
+import { createLogger } from './logger'
 
+const logger = createLogger('history-store')
 const HISTORY_PATH = join(app.getPath('userData'), 'history.json')
 const MAX_HISTORY = 20
 
@@ -11,7 +13,8 @@ export function loadHistory(): HistoryRecord[] {
   try {
     const parsed = JSON.parse(readFileSync(HISTORY_PATH, 'utf8'))
     return Array.isArray(parsed) ? parsed : []
-  } catch {
+  } catch (error) {
+    logger.warn('历史记录解析失败', { error: error instanceof Error ? error.message : String(error) })
     return []
   }
 }

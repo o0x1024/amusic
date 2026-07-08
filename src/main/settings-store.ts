@@ -3,7 +3,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { BUILTIN_PROVIDERS } from '../shared/model-providers'
 import type { AppSettings, ModelConfig } from '../shared/types'
+import { createLogger } from './logger'
 
+const logger = createLogger('settings-store')
 const SETTINGS_PATH = join(app.getPath('userData'), 'settings.json')
 
 function defaultConfig(priority: number, provider: (typeof BUILTIN_PROVIDERS)[number]): ModelConfig {
@@ -83,7 +85,8 @@ export function loadSettings(): AppSettings {
   try {
     const parsed = JSON.parse(readFileSync(SETTINGS_PATH, 'utf8')) as Partial<AppSettings>
     return normalizeSettings(parsed)
-  } catch {
+  } catch (error) {
+    logger.warn('设置文件解析失败，使用默认设置', { error: error instanceof Error ? error.message : String(error) })
     return defaultSettings()
   }
 }

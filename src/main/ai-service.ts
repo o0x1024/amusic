@@ -1,6 +1,9 @@
 import { resolveProtocol } from '../shared/model-providers'
 import type { HitLabIdeaResult, HitLabRequest, HitLabResult, HitLabVariant, LyricsDraftRequest, LyricsDraftResult, ModelConfig, ModelResponse, PromptFromLyricsRequest, SongRequest, SongResult, SongVariant } from '../shared/types'
+import { createLogger, llmLog } from './logger'
 import { getActiveConfig, getGenerationParams } from './settings-store'
+
+const logger = createLogger('ai-service')
 
 interface ChatMessage {
   role: 'system' | 'user'
@@ -17,26 +20,41 @@ function extractError(data: unknown): string {
   return maybe.error?.message ?? maybe.message ?? '模型调用失败'
 }
 
-async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<unknown> {
+interface PostJsonResult {
+  status: number
+  data: unknown
+}
+
+async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<PostJsonResult> {
   const response = await fetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body)
   })
-  const data = await response.json().catch(() => null)
+  const text = await response.text()
+  let data: unknown = null
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = text
+    }
+  }
   if (!response.ok) throw new Error(extractError(data))
-  return data
+  return { status: response.status, data }
 }
 
 export async function chat(config: ModelConfig, systemPrompt: string, prompt: string): Promise<ModelResponse> {
   const start = Date.now()
   const protocol = resolveProtocol(config.model_type, config.provider_protocol)
   const params = getGenerationParams()
+  let requestId = ''
 
   try {
     if (protocol === 'gemini') {
       const url = `${stripTrailingSlash(config.api_base)}/v1beta/models/${config.model_name}:generateContent?key=${config.api_key}`
-      const data = await postJson(url, { 'Content-Type': 'application/json' }, {
+      const headers = { 'Content-Type': 'application/json' }
+      const requestBody = {
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
@@ -44,13 +62,35 @@ export async function chat(config: ModelConfig, systemPrompt: string, prompt: st
           topP: params.topP,
           maxOutputTokens: params.maxTokens
         }
-      }) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-
-      return {
-        success: true,
-        content: data.candidates?.[0]?.content?.parts?.map(part => part.text ?? '').join('') ?? '',
-        durationMs: Date.now() - start
       }
+
+      requestId = llmLog.request({
+        model: config.model_name,
+        provider: config.model_type,
+        protocol,
+        url,
+        headers,
+        systemPrompt,
+        userPrompt: prompt,
+        requestBody
+      })
+
+      const { status, data } = await postJson(url, headers, requestBody)
+      const typed = data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+      const content = typed.candidates?.[0]?.content?.parts?.map(part => part.text ?? '').join('') ?? ''
+      const durationMs = Date.now() - start
+      const result: ModelResponse = { success: true, content, durationMs }
+
+      llmLog.response({
+        requestId,
+        success: true,
+        durationMs,
+        statusCode: status,
+        content,
+        rawResponse: data
+      })
+
+      return result
     }
 
     const messages: ChatMessage[] = [
@@ -72,27 +112,54 @@ export async function chat(config: ModelConfig, systemPrompt: string, prompt: st
       requestBody.thinking = { type: 'enabled' }
     }
 
-    const data = await postJson(
-      `${stripTrailingSlash(config.api_base)}/chat/completions`,
-      {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.api_key}`
-      },
-      requestBody
-    ) as { choices?: Array<{ message?: { content?: string } }> }
+    const url = `${stripTrailingSlash(config.api_base)}/chat/completions`
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.api_key}`
+    }
 
-    return {
+    requestId = llmLog.request({
+      model: config.model_name,
+      provider: config.model_type,
+      protocol,
+      url,
+      headers,
+      systemPrompt,
+      userPrompt: prompt,
+      requestBody
+    })
+
+    const { status, data } = await postJson(url, headers, requestBody)
+    const typed = data as { choices?: Array<{ message?: { content?: string } }> }
+    const content = typed.choices?.[0]?.message?.content ?? ''
+    const durationMs = Date.now() - start
+    const result: ModelResponse = { success: true, content, durationMs }
+
+    llmLog.response({
+      requestId,
       success: true,
-      content: data.choices?.[0]?.message?.content ?? '',
-      durationMs: Date.now() - start
-    }
+      durationMs,
+      statusCode: status,
+      content,
+      rawResponse: data
+    })
+
+    return result
   } catch (error) {
-    return {
+    const message = error instanceof Error ? error.message : String(error)
+    logger.error('模型调用失败', { model: config.model_name, provider: config.model_type, error: message })
+
+    const durationMs = Date.now() - start
+    const result: ModelResponse = { success: false, content: '', error: message, durationMs }
+
+    llmLog.response({
+      requestId,
       success: false,
-      content: '',
-      error: error instanceof Error ? error.message : String(error),
-      durationMs: Date.now() - start
-    }
+      durationMs,
+      error: message
+    })
+
+    return result
   }
 }
 

@@ -889,28 +889,38 @@ watch(() => props.pendingFavorite, (record) => {
       </button>
     </div>
 
-    <div class="space-y-3">
-      <section class="card bg-base-100 shadow-sm border border-base-300/60">
-        <div class="card-body p-4">
-          <div class="tabs tabs-boxed bg-base-200/60 w-fit">
-            <button
-              type="button"
-              :class="['tab tab-sm', activeWorkflowTab === 'complete' ? 'tab-active' : '']"
-              @click="activeWorkflowTab = 'complete'"
-            >
-              一次性生成
-            </button>
-            <button
-              type="button"
-              :class="['tab tab-sm', activeWorkflowTab === 'lyricsFirst' ? 'tab-active' : '']"
-              @click="activeWorkflowTab = 'lyricsFirst'"
-            >
-              先歌词后 Prompt
-            </button>
-          </div>
-        </div>
-      </section>
+    <div class="mb-4 rounded-xl border border-base-300/60 bg-base-200/60 p-1 grid grid-cols-2 gap-1">
+      <button
+        type="button"
+        :class="[
+          'btn btn-sm h-auto min-h-12 justify-start gap-2 px-4 text-left',
+          activeWorkflowTab === 'complete' ? 'btn-primary' : 'btn-ghost'
+        ]"
+        @click="activeWorkflowTab = 'complete'"
+      >
+        <font-awesome-icon icon="music" class="w-3.5 h-3.5 shrink-0" />
+        <span class="min-w-0">
+          <span class="block font-semibold">一次性生成</span>
+          <span class="block text-xs opacity-70">创作参数 + 歌词 + 英文 Prompt</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        :class="[
+          'btn btn-sm h-auto min-h-12 justify-start gap-2 px-4 text-left',
+          activeWorkflowTab === 'lyricsFirst' ? 'btn-primary' : 'btn-ghost'
+        ]"
+        @click="activeWorkflowTab = 'lyricsFirst'"
+      >
+        <font-awesome-icon icon="feather-alt" class="w-3.5 h-3.5 shrink-0" />
+        <span class="min-w-0">
+          <span class="block font-semibold">先歌词后 Prompt</span>
+          <span class="block text-xs opacity-70">不使用创作参数，按歌词反推</span>
+        </span>
+      </button>
+    </div>
 
+    <div class="space-y-3">
       <section v-if="activeWorkflowTab === 'complete'" class="card bg-base-100 shadow-sm border border-base-300/60">
         <div class="card-body p-5">
           <button

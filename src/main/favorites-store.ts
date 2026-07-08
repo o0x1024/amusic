@@ -2,7 +2,9 @@ import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 import type { FavoriteRecord } from '../shared/types'
+import { createLogger } from './logger'
 
+const logger = createLogger('favorites-store')
 const FAVORITES_PATH = join(app.getPath('userData'), 'favorites.json')
 
 export function loadFavorites(): FavoriteRecord[] {
@@ -10,7 +12,8 @@ export function loadFavorites(): FavoriteRecord[] {
   try {
     const parsed = JSON.parse(readFileSync(FAVORITES_PATH, 'utf8'))
     return Array.isArray(parsed) ? parsed : []
-  } catch {
+  } catch (error) {
+    logger.warn('收藏记录解析失败', { error: error instanceof Error ? error.message : String(error) })
     return []
   }
 }
