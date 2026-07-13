@@ -134,15 +134,48 @@ export interface HitLabRequest {
   constraints: string
   mutationFocus?: HitMutationFocus
   creationStage?: HitCreationStage
+  experienceMode?: 'beginner' | 'professional'
+  useScenario?: string
+  firstImpression?: string
+  creativePriority?: string
+  lockedStrategyFields?: HitStrategyField[]
+  introPreference?: string
+}
+
+export type HitStrategyField = 'audience' | 'emotionalCore' | 'styleBlend' | 'hookType' | 'lyricAngle'
+
+export interface HitStrategyCard {
+  id: string
+  title: string
+  positioning: string
+  primaryStrength: string
+  audience: string
+  emotionalCore: string
+  styleBlend: string
+  hookType: string
+  lyricAngle: string
+  productionPlan: string
+  introBlueprint: string
+  hookEntrySeconds: number
+  signatureSound: string
+  loopDesign: string
+  advantages: string[]
+  risks: string[]
+}
+
+export interface HitStrategyResult {
+  summary: string
+  cards: HitStrategyCard[]
 }
 
 export type HitMutationFocus = '自由探索' | '只改核心句' | '只改歌词视角' | '只改节奏与速度' | '只改人声人格' | '只改前3秒' | '只改歌曲结构'
-export type HitCreationStage = 'Hook探索' | '完整化'
+export type HitCreationStage = 'Hook探索' | '15秒循环' | '30秒短单曲' | '60秒微型歌曲' | '完整化'
 
-export type HitFeedbackDimension = '第一耳停留' | '歌词共鸣' | '记忆度' | '视频适配' | '复听意愿' | '声音期待'
+export type HitFeedbackDimension = '前奏停留' | '第一耳停留' | '歌词共鸣' | '记忆度' | '视频适配' | '复听意愿' | '声音期待'
 export type HitExternalPlatform = '妙响' | 'Suno' | 'Udio' | '其他'
 export type HitFirstImpression = '想继续听' | '无感' | '想跳过'
 export type HitHookVerdict = '成立' | '勉强' | '不成立'
+export type HitIntroVerdict = '抓住我了' | '一般' | '想跳过'
 
 export interface HitExternalGeneration {
   id: string
@@ -156,6 +189,8 @@ export interface HitExternalGeneration {
   strongestPart: string
   biggestProblem: string
   hookVerdict: HitHookVerdict
+  introVerdict: HitIntroVerdict
+  introNote: string
   bestTimeRange: string
   advanceToNextRound: boolean
   keep: string
@@ -253,6 +288,15 @@ export interface HitIntelligenceState {
   tasteReferences: TasteReference[]
   trendSamples: TrendSample[]
   publishMetrics: PublishMetricRecord[]
+  recentIdeas: HitIdeaHistoryEntry[]
+}
+
+export interface HitIdeaHistoryEntry {
+  id: string
+  createdAt: number
+  categoryId: string
+  category: string
+  idea: string
 }
 
 export interface HitLearnedProfile {
@@ -264,6 +308,7 @@ export interface HitLearnedProfile {
 
 export interface HitLabIdeaResult {
   idea: string
+  category: string
   lyricAngle: string
   emotionalCore: string
   hookType: string
@@ -275,6 +320,15 @@ export interface HitLabVariant {
   targetPlatform: string
   hookLine: string
   firstThreeSeconds: string
+  introHook: string
+  introTimeline: string
+  hookEntrySeconds: number
+  signatureSound: string
+  loopTransition: string
+  introRisks: string[]
+  targetDurationSeconds: number
+  structurePlan: string
+  completenessTest: string
   chorusSnippet: string
   lyrics: string
   stylePrompt: string

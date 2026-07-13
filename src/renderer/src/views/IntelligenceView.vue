@@ -3,7 +3,7 @@ import { computed, onMounted, ref, toRaw } from 'vue'
 import type { AppSettings, HitExperimentRecord, HitIntelligenceState, PublishMetricRecord, TasteReference, TrendSample } from '../../../shared/types'
 import { accountBaseline, buildLearnedProfile, engagementScore } from '../../../shared/hit-intelligence'
 
-const state = ref<HitIntelligenceState>({ tasteReferences: [], trendSamples: [], publishMetrics: [] })
+const state = ref<HitIntelligenceState>({ tasteReferences: [], trendSamples: [], publishMetrics: [], recentIdeas: [] })
 const experiments = ref<HitExperimentRecord[]>([])
 const settings = ref<AppSettings | null>(null)
 const message = ref('')

@@ -1,4 +1,4 @@
-import type { AppSettings, HitExperimentRecord, HitIntelligenceState, HitLabIdeaResult, HitLabRequest, HitLabResult, LyricsDraftRequest, LyricsDraftResult, ModelConfig, PromptFromLyricsRequest, SongRequest, SongResult } from '../../../shared/types'
+import type { AppSettings, HitExperimentRecord, HitIntelligenceState, HitLabIdeaResult, HitLabRequest, HitLabResult, HitStrategyResult, LyricsDraftRequest, LyricsDraftResult, ModelConfig, PromptFromLyricsRequest, SongRequest, SongResult } from '../../../shared/types'
 
 declare global {
   interface Window {
@@ -13,6 +13,7 @@ declare global {
       invoke(channel: 'lyrics:prompt', request: PromptFromLyricsRequest): Promise<SongResult>
       invoke(channel: 'hit-lab:generate', request: HitLabRequest): Promise<HitLabResult>
       invoke(channel: 'hit-lab:random-idea', request: HitLabRequest): Promise<HitLabIdeaResult>
+      invoke(channel: 'hit-lab:strategies', request: HitLabRequest): Promise<HitStrategyResult>
       invoke(channel: 'hit-experiments:list'): Promise<HitExperimentRecord[]>
       invoke(channel: 'hit-experiments:save', record: HitExperimentRecord): Promise<HitExperimentRecord[]>
       invoke(channel: 'hit-intelligence:get'): Promise<HitIntelligenceState>

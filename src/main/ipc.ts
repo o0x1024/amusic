@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import type { AppSettings, FavoriteRecord, HitExperimentRecord, HitLabRequest, HistoryRecord, LyricsDraftRequest, ModelConfig, PromptFromLyricsRequest, SongRequest } from '../shared/types'
-import { generateHitLab, generateHitLabIdea, generateLyricsDraft, generatePromptFromLyrics, generateSong, listModels, testModelConnection } from './ai-service'
+import { generateHitLab, generateHitLabIdea, generateHitStrategies, generateLyricsDraft, generatePromptFromLyrics, generateSong, listModels, testModelConnection } from './ai-service'
 import { addFavorite, deleteFavorite, loadFavorites } from './favorites-store'
 import { addHistory, clearHistory, loadHistory } from './history-store'
 import { createLogger } from './logger'
@@ -38,6 +38,7 @@ export function registerIpcHandlers(): void {
   handle('lyrics:prompt', (request: PromptFromLyricsRequest) => generatePromptFromLyrics(request))
   handle('hit-lab:generate', (request: HitLabRequest) => generateHitLab(request))
   handle('hit-lab:random-idea', (request: HitLabRequest) => generateHitLabIdea(request))
+  handle('hit-lab:strategies', (request: HitLabRequest) => generateHitStrategies(request))
   handle('hit-experiments:list', () => loadHitExperiments())
   handle('hit-experiments:save', (record: HitExperimentRecord) => saveHitExperiment(record))
   handle('hit-intelligence:get', () => loadHitIntelligence())
