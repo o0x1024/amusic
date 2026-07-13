@@ -344,12 +344,11 @@ async function refreshIdea() {
     const response = await window.amusic.invoke('hit-lab:random-idea', JSON.parse(JSON.stringify(toRaw(request.value))))
     request.value.idea = response.idea
     refreshedIdeaCategory.value = response.category
+    invalidateStrategies()
     if (request.value.experienceMode === 'professional') {
       if (response.lyricAngle.trim() && !isStrategyFieldLocked('lyricAngle')) request.value.lyricAngle = response.lyricAngle.trim()
       if (response.emotionalCore.trim() && !isStrategyFieldLocked('emotionalCore')) request.value.emotionalCore = response.emotionalCore.trim()
       if (response.hookType.trim() && !isStrategyFieldLocked('hookType')) request.value.hookType = response.hookType.trim()
-    } else {
-      await generateStrategies()
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
@@ -538,10 +537,10 @@ onMounted(async () => {
               >
                 <span v-if="refreshingIdea" class="loading loading-spinner loading-xs"></span>
                 <font-awesome-icon v-else icon="rotate" class="w-3 h-3" />
-                {{ refreshingIdea ? '刷新中' : 'AI 随机刷新' }}
+                {{ refreshingIdea ? '生成创意中' : 'AI 随机生成核心创意' }}
               </button>
             </span>
-            <textarea v-model="request.idea" class="textarea textarea-bordered min-h-36 leading-7 text-sm" placeholder="不会写可以直接点击“AI 随机刷新”；也可以只用日常语言描述一个场景或感受。" @input="invalidateStrategies" />
+            <textarea v-model="request.idea" class="textarea textarea-bordered min-h-36 leading-7 text-sm" placeholder="不会写可以直接点击上方 AI 按钮；也可以只用日常语言描述一个场景或感受。" @input="invalidateStrategies" />
             <span v-if="refreshedIdeaCategory" class="text-xs text-primary font-medium mt-1">本次程序抽签题材：{{ refreshedIdeaCategory }}</span>
             <span v-if="preparedVariantTitle" class="text-xs text-success font-medium mt-1">
               已带入《{{ preparedVariantTitle }}》，可以直接生成下一轮候选。
@@ -601,7 +600,7 @@ onMounted(async () => {
               <span class="text-xs font-medium">前奏怎么抓住人</span>
               <div class="flex flex-wrap gap-1 mt-1"><button v-for="option in introPreferenceOptions" :key="option" type="button" :class="['btn btn-xs', request.introPreference === option ? 'btn-secondary' : 'btn-outline']" @click="setBeginnerPreference('introPreference', option)">{{ option }}</button></div>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm w-full" :disabled="!request.idea.trim() || strategyLoading" @click="generateStrategies">
+            <button type="button" class="btn btn-secondary btn-sm w-full" :disabled="!request.idea.trim() || strategyLoading" @click="generateStrategies()">
               <span v-if="strategyLoading" class="loading loading-spinner loading-xs"></span>
               {{ strategyLoading ? '正在设计差异化路线...' : 'AI 生成 4 条音乐路线' }}
             </button>

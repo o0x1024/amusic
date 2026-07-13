@@ -9,6 +9,7 @@ export interface ProviderMeta {
   defaultModel: string
   icon: string
   color: string
+  supportsThinking?: boolean
 }
 
 export const BUILTIN_PROVIDERS: ProviderMeta[] = [
@@ -50,7 +51,8 @@ export const BUILTIN_PROVIDERS: ProviderMeta[] = [
     defaultBase: 'https://ark.cn-beijing.volces.com/api/v3',
     defaultModel: 'doubao-pro-32k',
     icon: 'server',
-    color: 'text-error'
+    color: 'text-error',
+    supportsThinking: true
   },
   {
     type: 'gemini',
@@ -100,4 +102,8 @@ export function defaultModelForProtocol(protocol: ProviderProtocol): string {
 
 export function isCustomProviderType(modelType: string): boolean {
   return modelType.startsWith('custom_')
+}
+
+export function providerSupportsThinking(modelType: string): boolean {
+  return BUILTIN_PROVIDERS.some(provider => provider.type === modelType && provider.supportsThinking)
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { accountBaseline, buildLearnedProfile, engagementScore, updateElo } from '../src/shared/hit-intelligence.ts'
 import type { HitExperimentVariant, HitIntelligenceState, PublishMetricRecord } from '../src/shared/types.ts'
-import { chooseNextTopic, isTooSimilar, textSimilarity } from '../src/shared/idea-diversity.ts'
+import { chooseNextTopic, IDEA_TOPICS, isTooSimilar, textSimilarity } from '../src/shared/idea-diversity.ts'
 import { hasSufficientStrategyDiversity, mergeStrategyFields } from '../src/shared/hit-strategy.ts'
 import type { HitLabRequest, HitStrategyCard } from '../src/shared/types.ts'
 import { getCreationStageConfig, HIT_CREATION_STAGES } from '../src/shared/creation-stage.ts'
@@ -51,6 +51,12 @@ test('expired trends do not enter learned strategy', () => {
 test('topic lottery excludes recent categories before sampling', () => {
   const topic = chooseNextTopic(['family', 'friendship', 'county', 'campus', 'travel'], () => 0)
   assert.ok(!['family', 'friendship', 'county', 'campus', 'travel'].includes(topic.id))
+})
+
+test('idea topic catalog is broad and has unique identifiers', () => {
+  assert.ok(IDEA_TOPICS.length >= 40)
+  assert.equal(new Set(IDEA_TOPICS.map(topic => topic.id)).size, IDEA_TOPICS.length)
+  assert.equal(new Set(IDEA_TOPICS.map(topic => topic.label)).size, IDEA_TOPICS.length)
 })
 
 test('idea similarity detects paraphrased repeated scenes', () => {

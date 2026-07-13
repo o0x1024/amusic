@@ -7,6 +7,7 @@ import {
   defaultBaseForProtocol,
   defaultModelForProtocol,
   isCustomProviderType,
+  providerSupportsThinking,
   resolveProtocol,
   type ProviderProtocol
 } from '../../../../shared/model-providers'
@@ -60,6 +61,7 @@ const providerViews = computed(() => configs.value.map(config => {
     defaultModel: builtin?.defaultModel || defaultModelForProtocol(protocol),
     icon: builtin?.icon || 'server',
     color: builtin?.color || 'text-warning',
+    supportsThinking: providerSupportsThinking(config.model_type),
     isCustom: isCustomProviderType(config.model_type)
   }
 }))
@@ -467,7 +469,7 @@ function clampGenerationParam(key: GenerationParamKey): void {
                     @change="(e: Event) => { selectedConfig!.is_enabled = (e.target as HTMLInputElement).checked ? 1 : 0 }"
                   />
                 </label>
-                <label v-if="selectedConfig.model_type === 'doubao'" class="flex items-center gap-2 cursor-pointer">
+                <label v-if="selectedProvider.supportsThinking" class="flex items-center gap-2 cursor-pointer">
                   <span class="text-sm text-base-content/60">深度思考</span>
                   <input
                     type="checkbox"

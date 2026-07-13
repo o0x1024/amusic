@@ -1,4 +1,4 @@
-import { resolveProtocol } from '../shared/model-providers'
+import { providerSupportsThinking, resolveProtocol } from '../shared/model-providers'
 import type { HitLabIdeaResult, HitLabRequest, HitLabResult, HitLabVariant, HitStrategyCard, HitStrategyResult, LyricsDraftRequest, LyricsDraftResult, ModelConfig, ModelResponse, PromptFromLyricsRequest, SongRequest, SongResult, SongVariant } from '../shared/types'
 import { createLogger, llmLog } from './logger'
 import { getActiveConfig, getGenerationParams } from './settings-store'
@@ -114,7 +114,7 @@ export async function chat(config: ModelConfig, systemPrompt: string, prompt: st
       response_format: { type: 'json_object' }
     }
 
-    if (config.thinking_enabled === 1) {
+    if (providerSupportsThinking(config.model_type) && config.thinking_enabled === 1) {
       requestBody.thinking = { type: 'enabled' }
     }
 
@@ -404,7 +404,7 @@ export async function generateSong(request: SongRequest): Promise<SongResult> {
   const config = getActiveConfig()
   if (!config) throw new Error('没有可用的模型配置，请先在系统设置 → AI 服务中配置并启用至少一个模型')
 
-  const systemPrompt = `你是 amusic 的资深音乐制作人与 AI 音乐提示词工程师，精通 Suno、Udio、Stable Audio 等主流音乐 AI 平台的 prompt 最佳实践。
+  const systemPrompt = `你是 汽水音乐 的资深音乐制作人与 AI 音乐提示词工程师，精通 Suno、Udio、Stable Audio 等主流音乐 AI 平台的 prompt 最佳实践。
 
 你的核心任务：将用户的模糊创作意图转译为结构化、可稳定复现的音乐 AI 提示词。
 
@@ -568,7 +568,7 @@ export async function generatePromptFromLyrics(request: PromptFromLyricsRequest)
   const config = getActiveConfig()
   if (!config) throw new Error('没有可用的模型配置，请先在系统设置 → AI 服务中配置并启用至少一个模型')
 
-  const systemPrompt = `你是 amusic 的资深音乐制作人与 AI 音乐 Prompt 工程师。你的任务是第二阶段：读取用户已经确认的歌词，反推最适合这首歌词的英文音乐 Prompt。
+  const systemPrompt = `你是 汽水音乐 的资深音乐制作人与 AI 音乐 Prompt 工程师。你的任务是第二阶段：读取用户已经确认的歌词，反推最适合这首歌词的英文音乐 Prompt。
 
 只输出 JSON，不要输出 Markdown 或任何额外文字。JSON 包含以下字段：
 - **title**: 歌名，可沿用用户标题
@@ -618,7 +618,7 @@ export async function generateHitLab(request: HitLabRequest): Promise<HitLabResu
   const learnedStrategy = buildLearnedProfile(loadHitIntelligence(), loadHitExperiments()).strategyText
   const stageConfig = getCreationStageConfig(request.creationStage)
 
-  const systemPrompt = `你是 amusic 的爆款歌曲 Prompt 实验导演，专注生成歌词和音乐 AI Prompt，不做音频编辑、混音或 DAW 指导。
+  const systemPrompt = `你是 汽水音乐 的爆款歌曲 Prompt 实验导演，专注生成歌词和音乐 AI Prompt，不做音频编辑、混音或 DAW 指导。
 
 你的目标：围绕同一个创意生成多个可测试的爆款候选版本，服务抖音与汽水音乐传播，同时保留可进入音乐 AI 平台生成成品的完整提示词。
 
@@ -748,7 +748,7 @@ export async function generateHitStrategies(request: HitLabRequest): Promise<Hit
   if (!config) throw new Error('没有可用的模型配置，请先在系统设置 → AI 服务中配置并启用至少一个模型')
   const learnedStrategy = buildLearnedProfile(loadHitIntelligence(), loadHitExperiments()).strategyText
 
-  const systemPrompt = `你是 amusic 的音乐产品策略导演。你的用户可能完全不懂流派、BPM、编曲和人声术语。
+  const systemPrompt = `你是 汽水音乐 的音乐产品策略导演。你的用户可能完全不懂流派、BPM、编曲和人声术语。
 
 你的任务不是直接写歌，而是把用户用日常语言描述的创意，转译为 4 张差异显著、可供选择的音乐策略卡。
 
@@ -798,7 +798,7 @@ export async function generateHitLabIdea(request: HitLabRequest): Promise<HitLab
   const recentIdeas = [request.idea, ...intelligence.recentIdeas.map(item => item.idea)].filter(Boolean)
   const recentCategoryIds = intelligence.recentIdeas.map(item => item.categoryId)
 
-  const systemPrompt = `你是 amusic 的爆款音乐创意策划，只负责为歌词和歌曲 Prompt 实验生成一个核心创意。
+  const systemPrompt = `你是 汽水音乐 的爆款音乐创意策划，只负责为歌词和歌曲 Prompt 实验生成一个核心创意。
 
 只输出 JSON，不要输出 Markdown 或任何额外文字。JSON 格式：
 {"idea":"...","category":"...","lyricAngle":"...","emotionalCore":"...","hookType":"..."}
