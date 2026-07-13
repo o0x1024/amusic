@@ -4,14 +4,16 @@ import FavoritesView from './views/FavoritesView.vue'
 import HitLabView from './views/HitLabView.vue'
 import StudioView from './views/StudioView.vue'
 import SettingsView from './views/SettingsView.vue'
+import IntelligenceView from './views/IntelligenceView.vue'
 import type { FavoriteRecord } from '../../shared/types'
 
-type Page = 'studio' | 'hitLab' | 'favorites' | 'settings'
+type Page = 'studio' | 'hitLab' | 'intelligence' | 'favorites' | 'settings'
 
 const page = ref<Page>('studio')
 const navItems = [
   { path: 'studio' as const, icon: 'music', label: '音乐工作台', section: 'workspace' },
   { path: 'hitLab' as const, icon: 'wand-magic-sparkles', label: '爆款实验台', section: 'workspace' },
+  { path: 'intelligence' as const, icon: 'database', label: '创作情报', section: 'workspace' },
   { path: 'favorites' as const, icon: 'bookmark', label: '收藏夹', section: 'workspace' },
   { path: 'settings' as const, icon: 'cog', label: '系统设置', section: 'system' }
 ]
@@ -87,6 +89,7 @@ function applyFavorite(record: FavoriteRecord) {
     <main class="flex-1 min-h-0 overflow-auto bg-base-100 relative">
       <StudioView v-if="page === 'studio'" :pending-favorite="pendingFavorite" @open-settings="page = 'settings'" />
       <HitLabView v-else-if="page === 'hitLab'" />
+      <IntelligenceView v-else-if="page === 'intelligence'" />
       <FavoritesView v-else-if="page === 'favorites'" @apply="applyFavorite" />
       <SettingsView v-else />
     </main>

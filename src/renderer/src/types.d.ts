@@ -1,4 +1,4 @@
-import type { AppSettings, HitLabIdeaResult, HitLabRequest, HitLabResult, LyricsDraftRequest, LyricsDraftResult, ModelConfig, PromptFromLyricsRequest, SongRequest, SongResult } from '../../../shared/types'
+import type { AppSettings, HitExperimentRecord, HitIntelligenceState, HitLabIdeaResult, HitLabRequest, HitLabResult, LyricsDraftRequest, LyricsDraftResult, ModelConfig, PromptFromLyricsRequest, SongRequest, SongResult } from '../../../shared/types'
 
 declare global {
   interface Window {
@@ -13,6 +13,12 @@ declare global {
       invoke(channel: 'lyrics:prompt', request: PromptFromLyricsRequest): Promise<SongResult>
       invoke(channel: 'hit-lab:generate', request: HitLabRequest): Promise<HitLabResult>
       invoke(channel: 'hit-lab:random-idea', request: HitLabRequest): Promise<HitLabIdeaResult>
+      invoke(channel: 'hit-experiments:list'): Promise<HitExperimentRecord[]>
+      invoke(channel: 'hit-experiments:save', record: HitExperimentRecord): Promise<HitExperimentRecord[]>
+      invoke(channel: 'hit-intelligence:get'): Promise<HitIntelligenceState>
+      invoke(channel: 'hit-intelligence:save', state: HitIntelligenceState): Promise<HitIntelligenceState>
+      invoke(channel: 'music-platform:submit', platform: string, prompt: string): Promise<{ success: boolean; message: string; externalId?: string; externalUrl?: string }>
+      invoke(channel: 'music-platform:status', platform: string, externalId: string): Promise<{ success: boolean; message: string; status?: string; externalUrl?: string }>
       invoke<T = unknown>(channel: string, ...args: unknown[]): Promise<T>
       on(channel: string, callback: (...args: unknown[]) => void): void
       off(channel: string, callback: (...args: unknown[]) => void): void

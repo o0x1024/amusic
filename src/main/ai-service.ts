@@ -2,6 +2,9 @@ import { resolveProtocol } from '../shared/model-providers'
 import type { HitLabIdeaResult, HitLabRequest, HitLabResult, HitLabVariant, LyricsDraftRequest, LyricsDraftResult, ModelConfig, ModelResponse, PromptFromLyricsRequest, SongRequest, SongResult, SongVariant } from '../shared/types'
 import { createLogger, llmLog } from './logger'
 import { getActiveConfig, getGenerationParams } from './settings-store'
+import { loadHitIntelligence } from './hit-intelligence-store'
+import { loadHitExperiments } from './hit-experiment-store'
+import { buildLearnedProfile } from '../shared/hit-intelligence'
 
 const logger = createLogger('ai-service')
 
@@ -476,7 +479,7 @@ export async function generateLyricsDraft(request: LyricsDraftRequest): Promise<
   const config = getActiveConfig()
   if (!config) throw new Error('没有可用的模型配置，请先在系统设置 → AI 服务中配置并启用至少一个模型')
 
-  const systemPrompt = `你是 amusic 的资深中文歌词作者，只负责第一阶段：生成可编辑的歌词草稿，不生成音乐 Prompt。
+  const systemPrompt = `你是网易云音乐的资深中文歌词作者，只负责第一阶段：生成可编辑的歌词草稿，不生成音乐 Prompt。
 
 只输出 JSON，不要输出 Markdown 或任何额外文字。JSON 包含以下字段：
 - **title**: 歌名，2-8 字
@@ -490,17 +493,11 @@ export async function generateLyricsDraft(request: LyricsDraftRequest): Promise<
 
 歌词格式必须类似：
 [Intro]
-(轻电子鼓点点击)
 
 [Verse1]
-早起二十分钟 绕了半条街
-就为买我想吃的芋泥贝果
 
 [Chorus]
-贝果碎了半块
-快乐多了半块
-生活有点难
-也会有惊喜来
+
 
 禁止用 /、｜ 或空格把多句歌词挤在同一行。`
 
@@ -573,6 +570,7 @@ export async function generateHitLab(request: HitLabRequest): Promise<HitLabResu
 
   const versionCount = Math.max(2, Math.min(8, Math.round(request.versionCount || 4)))
   const platforms = request.targetPlatforms.length > 0 ? request.targetPlatforms.join(' / ') : '抖音 / 汽水音乐'
+  const learnedStrategy = buildLearnedProfile(loadHitIntelligence(), loadHitExperiments()).strategyText
 
   const systemPrompt = `你是 amusic 的爆款歌曲 Prompt 实验导演，专注生成歌词和音乐 AI Prompt，不做音频编辑、混音或 DAW 指导。
 
@@ -590,7 +588,7 @@ export async function generateHitLab(request: HitLabRequest): Promise<HitLabResu
   - **hookLine**: 最抓耳的一句歌词，必须短、口语、适合反复
   - **firstThreeSeconds**: 前 3 秒听感设计，用歌词/人声/节奏描述，不涉及音频编辑操作
   - **chorusSnippet**: 适合短视频循环的副歌片段，4-8 行。JSON 字符串中必须使用 \n 换行，不允许用 / 分隔
-  - **lyrics**: 完整歌词草案，包含 [Intro]/[Verse]/[Pre-Chorus]/[Chorus]/[Bridge] 等段落。每个段落标记独占一行，每句歌词独占一行，段落之间空一行；JSON 字符串中必须使用 \n 换行，不允许用 / 分隔
+  - **lyrics**: 歌词草案；Hook 探索阶段只写 [Hook] 核心段落，完整化阶段才写完整歌曲。每个段落标记独占一行，每句歌词独占一行，段落之间空一行；JSON 字符串中必须使用 \n 换行，不允许用 / 分隔
   - **stylePrompt**: 风格 prompt，包含流派、BPM、人声、核心乐器、制作质感
   - **fullPrompt**: 可直接复制到音乐 AI 平台的完整中文 prompt
   - **douyinScore**: 0-100，抖音短视频传播潜力
@@ -623,10 +621,24 @@ ${request.idea}
 - 歌词角度：${request.lyricAngle || '口语化第一人称'}
 - 候选数量：${versionCount}
 - 约束与禁区：${request.constraints || '避免复制现有歌曲；避免过度模仿具体歌手；歌词要自然口语'}
+- 本轮控制变量：${request.mutationFocus || '自由探索'}
+- 创作阶段：${request.creationStage || 'Hook探索'}
+
+## 从历史真实选择学习到的策略
+
+${learnedStrategy || '暂无足够历史反馈，本轮不应用个人偏好先验'}
 
 ## 生成指令
 
-请生成 ${versionCount} 个候选版本。每个版本都必须包含完整歌词和可复制到音乐 AI 平台的 fullPrompt。
+请生成 ${versionCount} 个候选版本。
+
+阶段规则：
+- 如果是“Hook探索”：不要浪费篇幅写完整歌曲。lyrics 只返回带 [Hook] 标记的 8-20 秒核心段落；chorusSnippet 返回同一核心段落；fullPrompt 只描述生成该段 Hook 所需的最小音乐指令。重点拉开核心句、节奏落点、前3秒入口和人声人格。
+- 如果是“完整化”：围绕用户已选中的 Hook 写完整歌词和可复制到音乐 AI 平台的 fullPrompt；必须原样保留核心 Hook，不得在扩写时稀释或改坏。
+
+如果“本轮控制变量”不是“自由探索”，必须保留用户创意中未被点名的核心部分，只改变指定变量；候选之间也主要沿该变量拉开差异，避免整首推倒重写。
+
+历史策略只用于提高命中率，不得照抄参考作品；若历史偏好与用户本轮明确要求冲突，以本轮要求为准。
 
 歌词格式硬性要求：
 - lyrics 和 chorusSnippet 必须是真正的分行文本
@@ -648,7 +660,7 @@ ${request.idea}
 生活有点难
 也会有惊喜来
 
-版本设计建议：
+在候选数量允许时，版本设计建议：
 1. 至少 1 个偏抖音 15 秒爆点
 2. 至少 1 个偏汽水音乐完整收听
 3. 至少 1 个偏商业流行稳妥版本

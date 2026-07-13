@@ -1,10 +1,14 @@
 import { ipcMain } from 'electron'
-import type { AppSettings, FavoriteRecord, HitLabRequest, HistoryRecord, LyricsDraftRequest, ModelConfig, PromptFromLyricsRequest, SongRequest } from '../shared/types'
+import type { AppSettings, FavoriteRecord, HitExperimentRecord, HitLabRequest, HistoryRecord, LyricsDraftRequest, ModelConfig, PromptFromLyricsRequest, SongRequest } from '../shared/types'
 import { generateHitLab, generateHitLabIdea, generateLyricsDraft, generatePromptFromLyrics, generateSong, listModels, testModelConnection } from './ai-service'
 import { addFavorite, deleteFavorite, loadFavorites } from './favorites-store'
 import { addHistory, clearHistory, loadHistory } from './history-store'
 import { createLogger } from './logger'
 import { loadSettings, saveSettings } from './settings-store'
+import { loadHitExperiments, saveHitExperiment } from './hit-experiment-store'
+import { loadHitIntelligence, saveHitIntelligence } from './hit-intelligence-store'
+import { getMusicGenerationStatus, submitMusicGeneration } from './music-platform-service'
+import type { HitIntelligenceState } from '../shared/types'
 
 const logger = createLogger('ipc')
 
@@ -34,6 +38,12 @@ export function registerIpcHandlers(): void {
   handle('lyrics:prompt', (request: PromptFromLyricsRequest) => generatePromptFromLyrics(request))
   handle('hit-lab:generate', (request: HitLabRequest) => generateHitLab(request))
   handle('hit-lab:random-idea', (request: HitLabRequest) => generateHitLabIdea(request))
+  handle('hit-experiments:list', () => loadHitExperiments())
+  handle('hit-experiments:save', (record: HitExperimentRecord) => saveHitExperiment(record))
+  handle('hit-intelligence:get', () => loadHitIntelligence())
+  handle('hit-intelligence:save', (state: HitIntelligenceState) => saveHitIntelligence(state))
+  handle('music-platform:submit', (platform: string, prompt: string) => submitMusicGeneration(platform, prompt))
+  handle('music-platform:status', (platform: string, externalId: string) => getMusicGenerationStatus(platform, externalId))
   handle('favorites:list', () => loadFavorites())
   handle('favorites:add', (record: FavoriteRecord) => addFavorite(record))
   handle('favorites:delete', (id: string) => deleteFavorite(id))

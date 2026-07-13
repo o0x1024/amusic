@@ -41,7 +41,15 @@ export function defaultSettings(): AppSettings {
       fontSize: 14,
       uiScale: 100,
       spacing: 115
-    }
+    },
+    musicPlatforms: ['妙响', 'Suno', 'Udio', '其他'].map(platform => ({
+      platform: platform as AppSettings['musicPlatforms'][number]['platform'],
+      enabled: false,
+      mode: 'manual' as const,
+      endpoint: '',
+      statusEndpoint: '',
+      apiKey: ''
+    }))
   }
 }
 
@@ -71,7 +79,11 @@ function normalizeSettings(raw: Partial<AppSettings>): AppSettings {
       ...defaults.appearance,
       ...raw.appearance,
       fontSize: raw.appearance?.fontSize ?? raw.appearance?.font_size ?? defaults.appearance.fontSize
-    }
+    },
+    musicPlatforms: defaults.musicPlatforms.map(defaultPlatform => ({
+      ...defaultPlatform,
+      ...(Array.isArray(raw.musicPlatforms) ? raw.musicPlatforms.find(item => item.platform === defaultPlatform.platform) : null)
+    }))
   }
 }
 
