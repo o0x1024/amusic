@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, toRaw, watch } from 'vue'
-import type { HitExperimentRecord, HitExperimentRound, HitExperimentVariant, HitExternalGeneration, HitExternalPlatform, HitFeedbackDimension, HitFirstImpression, HitHookVerdict, HitIntroVerdict, HitLabRequest, HitLabResult, HitLabVariant, HitMutationFocus, HitStrategyCard, HitStrategyField } from '../../../shared/types'
+import type { HitBlindStage, HitExperimentRecord, HitExperimentRound, HitExperimentVariant, HitExternalGeneration, HitExternalPlatform, HitFeedbackDimension, HitFirstImpression, HitHookVerdict, HitIntroVerdict, HitLabRequest, HitLabResult, HitLabVariant, HitLyricProtection, HitLyricRouteCard, HitLyricScores, HitLyricsAnalysisResult, HitMutationFocus, HitStrategyCard, HitStrategyField } from '../../../shared/types'
 import { updateElo } from '../../../shared/hit-intelligence'
 import { mergeStrategyFields } from '../../../shared/hit-strategy'
-import { HIT_CREATION_STAGES, getCreationStageConfig } from '../../../shared/creation-stage'
+import { HIT_CREATION_STAGES, getCreationStageConfig, normalizeCreationStage } from '../../../shared/creation-stage'
+import { lyricRouteContext } from '../../../shared/hit-lyric-route'
 
 const platformOptions = ['抖音', '汽水音乐', '小红书', 'B站']
 const hookOptions = ['副歌短句抓耳', '开头一句杀', '情绪反差', '土味但高级', '旋律洗脑', '合唱跟唱', '说唱记忆点', '生活口头禅', '反复自嘲']
-const angleOptions = ['普通人自嘲', '都市孤独', '打工人独白', '朋友视角', '家庭日常', '夏日心动', '成长释怀', '反差爽感', '赛博生活', '抽象实验叙事']
-const mutationOptions: HitMutationFocus[] = ['自由探索', '只改核心句', '只改歌词视角', '只改节奏与速度', '只改人声人格', '只改前3秒', '只改歌曲结构']
-const feedbackDimensions: HitFeedbackDimension[] = ['前奏停留', '第一耳停留', '歌词共鸣', '记忆度', '视频适配', '复听意愿', '声音期待']
+const angleOptions = ['生活观察', '人物小传', '群像蒙太奇', '轻喜剧吐槽', '方言宣言', '物件第一人称', '劳动节奏', '知识典故重构', '儿童视角', '社区故事', '朋友视角', '家庭日常', '成长释怀', '近未来寓言', '无人物自然叙事', '亲密关系对话', '抽象实验叙事']
+const mutationOptions: HitMutationFocus[] = ['自由探索', '只改核心句', '只改叙事引擎', '只改中心意象', '只改情绪矛盾', '只改具体细节', '只改歌词视角', '只改人称距离', '只改Hook言语动作', '只改信息留白度', '只改重复方式', '只改节奏与速度', '只改人声人格', '只改前3秒', '只改歌曲结构']
+const lyricFeedbackDimensions: HitFeedbackDimension[] = ['像真人写的', '核心句记忆', '歌词共鸣', '引用欲', '叙事推进']
+const audioFeedbackDimensions: HitFeedbackDimension[] = ['前奏停留', '第一耳停留', '演唱放大', '编曲放大', '视频适配', '复听意愿', '声音期待']
 const externalPlatforms: HitExternalPlatform[] = ['妙响', 'Suno', 'Udio', '其他']
 const firstImpressions: HitFirstImpression[] = ['想继续听', '无感', '想跳过']
 const hookVerdicts: HitHookVerdict[] = ['成立', '勉强', '不成立']
@@ -20,11 +22,35 @@ const scenarioOptions = ['短视频日常记录', '旅行与风景', '情绪文�
 const impressionOptions = ['真实克制', '第一秒惊艳', '轻松有趣', '温暖陪伴', '强烈爆发', '神秘新鲜', '想跟着唱']
 const priorityOptions = ['歌词共鸣', '旋律传播', '声音人格', '视频卡点', '实验反差']
 const introPreferenceOptions = ['AI自动决定', '人声冷开场', '第一拍卡点', '标志音色', '反差空拍', '场景声音', '零前奏直入Hook']
+const lyricProtectionOptions: Array<{ value: HitLyricProtection; description: string }> = [
+  { value: '原文锁定', description: '不得新增或改写原句；可按目标时长抽取、重复和重排' },
+  { value: '允许删减重排', description: '可以删句、重复和调整顺序，但不改句子' },
+  { value: '允许轻微润色', description: '允许为演唱、押韵和口语感做小幅修改' },
+  { value: '允许深度改编', description: '保留主题、事实和核心句，允许重新组织' }
+]
 const strategyFieldLabels: Record<HitStrategyField, string> = { audience: '目标听众', emotionalCore: '情绪', styleBlend: '音乐策略', hookType: 'Hook', lyricAngle: '歌词角度' }
+const lyricScoreLabels: Record<keyof HitLyricScores, string> = {
+  hookCompression: '核心句压缩度',
+  specificity: '具体性',
+  conversationalNaturalness: '口语自然度',
+  narrativeProgression: '叙事推进',
+  singability: '传唱性',
+  quoteDesire: '引用欲',
+  remixOpenness: '二创开放度',
+  fullSongExpansion: '完整歌曲扩展潜力'
+}
+
+function emptyLyricScores(): HitLyricScores {
+  return { hookCompression: 0, specificity: 0, conversationalNaturalness: 0, narrativeProgression: 0, singability: 0, quoteDesire: 0, remixOpenness: 0, fullSongExpansion: 0 }
+}
 
 const selectedPlatforms = ref(['抖音', '汽水音乐'])
 const request = ref<HitLabRequest>({
+  sourceMode: 'idea',
   idea: '',
+  existingLyrics: '',
+  lyricProtection: '原文锁定',
+  lyricsAnalysisContext: '',
   targetPlatforms: selectedPlatforms.value,
   audience: '',
   emotionalCore: '',
@@ -54,13 +80,20 @@ const strategyCards = ref<HitStrategyCard[]>([])
 const strategySummary = ref('')
 const selectedStrategyId = ref('')
 const strategyLoading = ref(false)
+const lyricRouteCards = ref<HitLyricRouteCard[]>([])
+const lyricRouteSummary = ref('')
+const selectedLyricRouteId = ref('')
+const lyricRouteLoading = ref(false)
+const lyricsAnalysisLoading = ref(false)
+const lyricsAnalysis = ref<HitLyricsAnalysisResult | null>(null)
 const lockedStrategyFields = ref<HitStrategyField[]>([])
 const activeVariantIndex = ref(0)
 const experiment = ref<HitExperimentRecord | null>(null)
 const savedExperiments = ref<HitExperimentRecord[]>([])
 const pendingParentVariantId = ref('')
 const blindPair = ref<[number, number]>([0, 1])
-const feedbackDimension = ref<HitFeedbackDimension>('第一耳停留')
+const blindStage = ref<HitBlindStage>('lyrics')
+const feedbackDimension = ref<HitFeedbackDimension>('像真人写的')
 const feedbackNote = ref('')
 const eliminationReason = ref('')
 const experimentMessage = ref('')
@@ -93,10 +126,15 @@ const blindCandidates = computed(() => {
   const variants = currentRound.value?.variants ?? []
   return [variants[blindPair.value[0]], variants[blindPair.value[1]]].filter(Boolean) as HitExperimentVariant[]
 })
-const canGenerate = computed(() => request.value.idea.trim().length > 0
+const sourceReady = computed(() => request.value.sourceMode === 'lyrics'
+  ? Boolean(request.value.existingLyrics?.trim())
+  : Boolean(request.value.idea.trim()))
+const canGenerate = computed(() => sourceReady.value
   && !loading.value
   && !refreshingIdea.value
+  && (request.value.sourceMode === 'lyrics' || Boolean(selectedLyricRouteId.value))
   && (request.value.experienceMode === 'professional' || Boolean(selectedStrategyId.value)))
+const feedbackDimensions = computed(() => blindStage.value === 'lyrics' ? lyricFeedbackDimensions : audioFeedbackDimensions)
 const activeStageConfig = computed(() => getCreationStageConfig(request.value.creationStage))
 const visibleAngleOptions = computed(() => {
   const current = request.value.lyricAngle.trim()
@@ -129,6 +167,10 @@ function scoreTone(score: number): string {
 
 function variantScore(variant: HitLabVariant): number {
   return Math.round((variant.douyinScore + variant.qishuiScore + variant.memorabilityScore) / 3)
+}
+
+function blindAudioUrl(candidate: HitExperimentVariant): string {
+  return candidate.externalGenerations.find(item => item.externalUrl)?.externalUrl || ''
 }
 
 async function generate() {
@@ -177,7 +219,9 @@ async function recordRound(generated: HitLabResult) {
       losses: 0,
       eliminationReason: '',
       externalGenerations: [],
-      eloRating: 1000
+      eloRating: 1000,
+      lyricEloRating: 1000,
+      audioEloRating: 1000
     }))
   }
 
@@ -197,6 +241,8 @@ async function recordRound(generated: HitLabResult) {
   experiment.value.rounds.push(round)
   pendingParentVariantId.value = ''
   blindPair.value = [0, 1]
+  blindStage.value = 'lyrics'
+  feedbackDimension.value = '像真人写的'
   await persistExperiment()
 }
 
@@ -214,13 +260,30 @@ function loadExperiment(record: HitExperimentRecord) {
     for (const variant of round.variants) {
       variant.externalGenerations ||= []
       variant.eloRating ||= 1000
+      variant.lyricEloRating ||= variant.eloRating
+      variant.audioEloRating ||= variant.eloRating
+      variant.centralImage ||= ''
+      variant.emotionalParadox ||= ''
+      variant.narrativeMode ||= '历史数据未标注'
+      variant.hookSpeechAct ||= ''
+      variant.specificDetails ||= []
+      variant.perspectiveDistance ||= ''
+      variant.repeatPattern ||= ''
+      variant.storyProgression ||= ''
+      variant.clicheRisks ||= []
+      variant.derivativeSimilarityRisks ||= []
+      variant.lyricScores ||= emptyLyricScores()
     }
   }
   experiment.value = normalized
   request.value = {
     ...JSON.parse(JSON.stringify(record.request)),
+    sourceMode: record.request.sourceMode || 'idea',
+    existingLyrics: record.request.existingLyrics || '',
+    lyricProtection: record.request.lyricProtection || '原文锁定',
+    lyricsAnalysisContext: record.request.lyricsAnalysisContext || '',
     mutationFocus: record.request.mutationFocus || '自由探索',
-    creationStage: record.request.creationStage || 'Hook探索',
+    creationStage: normalizeCreationStage(record.request.creationStage),
     experienceMode: record.request.experienceMode || 'professional',
     useScenario: record.request.useScenario || '短视频日常记录',
     firstImpression: record.request.firstImpression || '真实克制',
@@ -228,11 +291,14 @@ function loadExperiment(record: HitExperimentRecord) {
     introPreference: record.request.introPreference || 'AI自动决定'
   }
   selectedStrategyId.value = request.value.experienceMode === 'beginner' && request.value.styleBlend ? 'restored-strategy' : ''
+  selectedLyricRouteId.value = record.request.sourceMode === 'lyrics' ? '' : (record.request.lyricRouteId || (record.request.lyricRouteContext ? 'restored-route' : ''))
   lockedStrategyFields.value = [...(record.request.lockedStrategyFields || [])]
   selectedPlatforms.value = [...record.request.targetPlatforms]
   const round = record.rounds.at(-1)
   result.value = round ? { summary: round.summary, variants: round.variants } : null
   blindPair.value = [0, 1]
+  blindStage.value = 'lyrics'
+  feedbackDimension.value = '像真人写的'
   activeVariantIndex.value = 0
 }
 
@@ -243,7 +309,12 @@ async function chooseBlindWinner(winner: HitExperimentVariant) {
   winner.wins += 1
   winner.status = 'winner'
   loser.losses += 1
-  ;[winner.eloRating, loser.eloRating] = updateElo(winner, loser)
+  const ratingField = blindStage.value === 'lyrics' ? 'lyricEloRating' : 'audioEloRating'
+  const winnerProxy = { ...winner, eloRating: winner[ratingField] || 1000 }
+  const loserProxy = { ...loser, eloRating: loser[ratingField] || 1000 }
+  ;[winner[ratingField], loser[ratingField]] = updateElo(winnerProxy, loserProxy)
+  winner.eloRating = Math.round(((winner.lyricEloRating || 1000) + (winner.audioEloRating || 1000)) / 2)
+  loser.eloRating = Math.round(((loser.lyricEloRating || 1000) + (loser.audioEloRating || 1000)) / 2)
   experiment.value.feedback.push({
     id: id(),
     createdAt: Date.now(),
@@ -251,6 +322,7 @@ async function chooseBlindWinner(winner: HitExperimentVariant) {
     winnerVariantId: winner.id,
     loserVariantId: loser.id,
     dimension: feedbackDimension.value,
+    stage: blindStage.value,
     note: feedbackNote.value.trim(),
     testerName: testerName.value.trim() || '匿名',
     testerSegment: testerSegment.value.trim()
@@ -334,6 +406,7 @@ async function syncExternalResult(item: HitExternalGeneration) {
 }
 
 async function refreshIdea() {
+  if (request.value.sourceMode === 'lyrics') return
   if (refreshingIdea.value || loading.value) return
   refreshingIdea.value = true
   error.value = ''
@@ -344,7 +417,7 @@ async function refreshIdea() {
     const response = await window.amusic.invoke('hit-lab:random-idea', JSON.parse(JSON.stringify(toRaw(request.value))))
     request.value.idea = response.idea
     refreshedIdeaCategory.value = response.category
-    invalidateStrategies()
+    invalidateLyricRoutes()
     if (request.value.experienceMode === 'professional') {
       if (response.lyricAngle.trim() && !isStrategyFieldLocked('lyricAngle')) request.value.lyricAngle = response.lyricAngle.trim()
       if (response.emotionalCore.trim() && !isStrategyFieldLocked('emotionalCore')) request.value.emotionalCore = response.emotionalCore.trim()
@@ -376,14 +449,51 @@ function setBeginnerPreference(field: 'useScenario' | 'firstImpression' | 'creat
 }
 
 function invalidateStrategies() {
-  if (request.value.experienceMode !== 'beginner') return
   strategyCards.value = []
   strategySummary.value = ''
   selectedStrategyId.value = ''
 }
 
+function invalidateLyricRoutes() {
+  lyricRouteCards.value = []
+  lyricRouteSummary.value = ''
+  selectedLyricRouteId.value = ''
+  request.value.lyricRouteId = ''
+  request.value.lyricRouteContext = ''
+  invalidateStrategies()
+}
+
+async function generateLyricRoutes() {
+  if (!request.value.idea.trim() || lyricRouteLoading.value) return
+  lyricRouteLoading.value = true
+  error.value = ''
+  invalidateLyricRoutes()
+  try {
+    const response = await window.amusic.invoke('hit-lab:lyric-routes', JSON.parse(JSON.stringify(toRaw(request.value))))
+    lyricRouteCards.value = response.cards
+    lyricRouteSummary.value = response.summary
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    lyricRouteLoading.value = false
+  }
+}
+
+function applyLyricRoute(card: HitLyricRouteCard) {
+  selectedLyricRouteId.value = card.id
+  request.value.lyricRouteId = card.id
+  request.value.lyricRouteContext = lyricRouteContext(card)
+  request.value.lyricAngle = card.narrativeMode
+  request.value.hookType = card.hookSpeechAct
+  invalidateStrategies()
+}
+
 async function generateStrategies() {
-  if (!request.value.idea.trim() || strategyLoading.value) return
+  if (!sourceReady.value || strategyLoading.value) return
+  if (request.value.sourceMode === 'idea' && !selectedLyricRouteId.value) {
+    error.value = '请先生成并选择一条歌词路线'
+    return
+  }
   strategyLoading.value = true
   error.value = ''
   selectedStrategyId.value = ''
@@ -398,9 +508,64 @@ async function generateStrategies() {
   }
 }
 
+async function analyzeLyrics(): Promise<boolean> {
+  if (!request.value.existingLyrics?.trim() || lyricsAnalysisLoading.value) return false
+  lyricsAnalysisLoading.value = true
+  error.value = ''
+  try {
+    lyricsAnalysis.value = await window.amusic.invoke('hit-lab:analyze-lyrics', JSON.parse(JSON.stringify(toRaw(request.value))))
+    request.value.lyricsAnalysisContext = [
+      lyricsAnalysis.value.summary,
+      `优势：${lyricsAnalysis.value.strengths.join('；')}`,
+      `风险：${lyricsAnalysis.value.risks.join('；')}`,
+      `候选Hook：${lyricsAnalysis.value.hookCandidates.map(item => item.line).join('；')}`,
+      `情绪曲线：${lyricsAnalysis.value.emotionCurve}`,
+      `结构建议：${lyricsAnalysis.value.suggestedStructure}`
+    ].join('\n')
+    return true
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e)
+    return false
+  } finally {
+    lyricsAnalysisLoading.value = false
+  }
+}
+
+async function prepareStrategies() {
+  if (request.value.sourceMode === 'lyrics' && !lyricsAnalysis.value) {
+    const analyzed = await analyzeLyrics()
+    if (!analyzed) return
+  }
+  if (request.value.sourceMode === 'idea' && !selectedLyricRouteId.value) {
+    error.value = '请先生成并选择一条歌词路线'
+    return
+  }
+  await generateStrategies()
+}
+
+function setSourceMode(mode: 'idea' | 'lyrics') {
+  request.value.sourceMode = mode
+  lyricRouteCards.value = []
+  lyricRouteSummary.value = ''
+  selectedLyricRouteId.value = ''
+  request.value.lyricRouteId = ''
+  request.value.lyricRouteContext = ''
+  strategyCards.value = []
+  strategySummary.value = ''
+  selectedStrategyId.value = ''
+  error.value = ''
+}
+
+function invalidateLyricsAnalysis() {
+  lyricsAnalysis.value = null
+  request.value.lyricsAnalysisContext = ''
+  invalidateStrategies()
+}
+
 function applyStrategy(card: HitStrategyCard) {
   selectedStrategyId.value = card.id
-  Object.assign(request.value, mergeStrategyFields(request.value, card, lockedStrategyFields.value))
+  const routeLockedFields: HitStrategyField[] = selectedLyricRouteId.value ? ['lyricAngle', 'hookType'] : []
+  Object.assign(request.value, mergeStrategyFields(request.value, card, [...new Set([...lockedStrategyFields.value, ...routeLockedFields])]))
 }
 
 function setExperienceMode(mode: 'beginner' | 'professional') {
@@ -428,6 +593,13 @@ function copyVariant(variant: HitLabVariant) {
     `定位：${variant.positioning}`,
     `平台：${variant.targetPlatform}`,
     `Hook：${variant.hookLine}`,
+    `叙事引擎：${variant.narrativeMode}`,
+    `中心意象：${variant.centralImage}`,
+    `情绪矛盾：${variant.emotionalParadox}`,
+    `Hook言语动作：${variant.hookSpeechAct}`,
+    `具体细节：${variant.specificDetails.join('；')}`,
+    `人称距离：${variant.perspectiveDistance}`,
+    `重复方式：${variant.repeatPattern}`,
     `前奏：${variant.introTimeline || variant.firstThreeSeconds}`,
     `核心 Hook 进入：${variant.hookEntrySeconds || '未标记'} 秒`,
     `目标时长：${variant.targetDurationSeconds || '未标记'} 秒`,
@@ -474,6 +646,19 @@ function continueWithVariant(variant: HitLabVariant) {
     ...externalFeedback
   ].join('\n')
   if (variant.stylePrompt) request.value.styleBlend = variant.stylePrompt
+  selectedLyricRouteId.value = request.value.lyricRouteId || 'continued-route'
+  request.value.lyricRouteId ||= 'continued-route'
+  request.value.lyricRouteContext = [
+    `延续胜出候选《${variant.title}》的歌词 DNA`,
+    `叙事引擎：${variant.narrativeMode}`,
+    `中心意象：${variant.centralImage}`,
+    `情绪矛盾：${variant.emotionalParadox}`,
+    `Hook言语动作：${variant.hookSpeechAct}`,
+    `具体细节：${variant.specificDetails.join('；')}`,
+    `人称距离：${variant.perspectiveDistance}`,
+    `重复方式：${variant.repeatPattern}`,
+    `叙事推进：${variant.storyProgression}`
+  ].join('\n')
   pendingParentVariantId.value = storedVariant?.id || ''
   result.value = null
   activeVariantIndex.value = 0
@@ -521,12 +706,23 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 rounded-xl border border-base-300/60 bg-base-200/40 p-1">
-            <button type="button" :class="['btn btn-sm', request.experienceMode === 'beginner' ? 'btn-primary' : 'btn-ghost']" @click="setExperienceMode('beginner')">小白模式</button>
-            <button type="button" :class="['btn btn-sm', request.experienceMode === 'professional' ? 'btn-primary' : 'btn-ghost']" @click="setExperienceMode('professional')">专业模式</button>
+          <div>
+            <span class="text-xs font-bold text-base-content/45 uppercase tracking-wider">第一步：创作来源</span>
+            <div class="grid grid-cols-2 rounded-xl border border-base-300/60 bg-base-200/40 p-1 mt-1">
+              <button type="button" :class="['btn btn-sm', request.sourceMode === 'idea' ? 'btn-primary' : 'btn-ghost']" @click="setSourceMode('idea')">从核心创意开始</button>
+              <button type="button" :class="['btn btn-sm', request.sourceMode === 'lyrics' ? 'btn-primary' : 'btn-ghost']" @click="setSourceMode('lyrics')">从已有歌词开始</button>
+            </div>
           </div>
 
-          <label class="form-control">
+          <div>
+            <span class="text-xs font-bold text-base-content/45 uppercase tracking-wider">第二步：操作方式</span>
+            <div class="grid grid-cols-2 rounded-xl border border-base-300/60 bg-base-200/40 p-1 mt-1">
+            <button type="button" :class="['btn btn-sm', request.experienceMode === 'beginner' ? 'btn-primary' : 'btn-ghost']" @click="setExperienceMode('beginner')">小白模式</button>
+            <button type="button" :class="['btn btn-sm', request.experienceMode === 'professional' ? 'btn-primary' : 'btn-ghost']" @click="setExperienceMode('professional')">专业模式</button>
+            </div>
+          </div>
+
+          <label v-if="request.sourceMode === 'idea'" class="form-control">
             <span class="label py-1">
               <span class="label-text font-medium text-sm">核心创意</span>
               <button
@@ -540,12 +736,66 @@ onMounted(async () => {
                 {{ refreshingIdea ? '生成创意中' : 'AI 随机生成核心创意' }}
               </button>
             </span>
-            <textarea v-model="request.idea" class="textarea textarea-bordered min-h-36 leading-7 text-sm" placeholder="不会写可以直接点击上方 AI 按钮；也可以只用日常语言描述一个场景或感受。" @input="invalidateStrategies" />
+            <textarea v-model="request.idea" class="textarea textarea-bordered min-h-36 leading-7 text-sm" placeholder="不会写可以直接点击上方 AI 按钮；也可以只用日常语言描述一个场景或感受。" @input="invalidateLyricRoutes" />
             <span v-if="refreshedIdeaCategory" class="text-xs text-primary font-medium mt-1">本次程序抽签题材：{{ refreshedIdeaCategory }}</span>
             <span v-if="preparedVariantTitle" class="text-xs text-success font-medium mt-1">
               已带入《{{ preparedVariantTitle }}》，可以直接生成下一轮候选。
             </span>
           </label>
+
+          <div v-if="request.sourceMode === 'lyrics'" class="rounded-xl border border-primary/25 bg-primary/5 p-3 space-y-3">
+            <div>
+              <h4 class="font-semibold text-sm">已有歌词</h4>
+              <p class="text-xs text-base-content/50 mt-1">系统先诊断和提取 Hook，不会在分析阶段擅自改词。</p>
+            </div>
+            <textarea v-model="request.existingLyrics" class="textarea textarea-bordered min-h-56 leading-7 text-sm w-full" placeholder="粘贴完整歌词或几句副歌，段落标记可使用 [Verse]、[Chorus]。" @input="invalidateLyricsAnalysis" />
+            <div>
+              <span class="text-xs font-medium">歌词保护等级</span>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                <button v-for="option in lyricProtectionOptions" :key="option.value" type="button" :class="['rounded-lg border p-2 text-left', request.lyricProtection === option.value ? 'border-primary bg-primary/10' : 'border-base-300 bg-base-100']" @click="request.lyricProtection = option.value; invalidateLyricsAnalysis()">
+                  <strong class="text-xs">{{ option.value }}</strong><small class="block text-base-content/50 mt-1">{{ option.description }}</small>
+                </button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm w-full" :disabled="!request.existingLyrics?.trim() || lyricsAnalysisLoading" @click="analyzeLyrics">
+              <span v-if="lyricsAnalysisLoading" class="loading loading-spinner loading-xs"></span>
+              {{ lyricsAnalysisLoading ? '正在诊断歌词...' : '分析歌词并提取 Hook' }}
+            </button>
+          </div>
+
+          <div v-if="request.sourceMode === 'idea'" class="rounded-xl border border-secondary/25 bg-secondary/5 p-3 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h4 class="font-semibold text-sm">第三步：选择歌词路线</h4>
+                <p class="text-xs text-base-content/50 mt-1">先决定故事怎么讲，暂不讨论流派、BPM 和编曲。</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-xs shrink-0" :disabled="!request.idea.trim() || lyricRouteLoading" @click="generateLyricRoutes">
+                <span v-if="lyricRouteLoading" class="loading loading-spinner loading-xs"></span>
+                {{ lyricRouteLoading ? '设计中' : lyricRouteCards.length ? '重新生成' : '生成4条路线' }}
+              </button>
+            </div>
+            <p v-if="lyricRouteSummary" class="text-xs text-base-content/55 leading-5">{{ lyricRouteSummary }}</p>
+            <div v-if="lyricRouteCards.length" class="space-y-2">
+              <button v-for="card in lyricRouteCards" :key="card.id" type="button" :class="['w-full rounded-xl border p-3 text-left transition-colors', selectedLyricRouteId === card.id ? 'border-secondary bg-secondary/10' : 'border-base-300 bg-base-100 hover:border-secondary/50']" @click="applyLyricRoute(card)">
+                <div class="flex items-center justify-between gap-2"><strong class="text-sm">{{ card.title }}</strong><span class="badge badge-secondary badge-outline badge-xs">{{ card.narrativeMode }}</span></div>
+                <p class="text-xs text-base-content/65 leading-5 mt-1">{{ card.positioning }}</p>
+                <div class="grid grid-cols-1 gap-1 mt-2 text-xs">
+                  <p><strong>中心意象：</strong>{{ card.centralImage }}</p>
+                  <p><strong>情绪矛盾：</strong>{{ card.emotionalParadox }}</p>
+                  <p><strong>Hook 动作：</strong>{{ card.hookSpeechAct }} · {{ card.hookBlueprint }}</p>
+                  <p class="text-base-content/55"><strong>具体细节：</strong>{{ card.specificDetails.join('；') }}</p>
+                </div>
+              </button>
+            </div>
+            <p v-else class="text-xs text-base-content/45">输入核心创意后生成四条纯歌词路线。</p>
+          </div>
+
+          <div v-if="request.sourceMode === 'lyrics' && lyricsAnalysis" class="rounded-xl border border-success/25 bg-success/5 p-3 space-y-3">
+            <div><strong class="text-sm">歌词诊断</strong><p class="text-xs text-base-content/65 leading-5 mt-1">{{ lyricsAnalysis.summary }}</p></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs"><div class="rounded-lg bg-base-100 border border-success/20 p-2"><strong class="text-success">优势</strong><ul class="mt-1 space-y-1"><li v-for="item in lyricsAnalysis.strengths" :key="item">· {{ item }}</li></ul></div><div class="rounded-lg bg-base-100 border border-warning/20 p-2"><strong class="text-warning">风险</strong><ul class="mt-1 space-y-1"><li v-for="item in lyricsAnalysis.risks" :key="item">· {{ item }}</li></ul></div></div>
+            <div><span class="text-xs font-medium">候选 Hook</span><div class="space-y-1 mt-1"><div v-for="item in lyricsAnalysis.hookCandidates" :key="item.line" class="rounded-lg bg-base-100 border border-base-300/60 p-2 text-xs"><strong>{{ item.line }}</strong><p class="text-base-content/50 mt-1">{{ item.reason }}</p></div></div></div>
+            <details class="collapse collapse-arrow border border-base-300/60 bg-base-100"><summary class="collapse-title min-h-0 py-2 text-xs font-medium">查看 15 / 30 / 90 秒原句片段建议</summary><div class="collapse-content grid grid-cols-1 gap-2 text-xs"><div><strong>15 秒</strong><pre class="whitespace-pre-wrap font-sans mt-1">{{ lyricsAnalysis.excerpt15 }}</pre></div><div><strong>30 秒</strong><pre class="whitespace-pre-wrap font-sans mt-1">{{ lyricsAnalysis.excerpt30 }}</pre></div><div><strong>90 秒</strong><pre class="whitespace-pre-wrap font-sans mt-1">{{ lyricsAnalysis.excerpt90 }}</pre></div></div></details>
+          </div>
 
           <div class="grid grid-cols-1 gap-3">
             <label class="form-control rounded-box border border-base-300/60 bg-base-200/30 p-3">
@@ -581,7 +831,7 @@ onMounted(async () => {
 
           <div v-if="request.experienceMode === 'beginner'" class="rounded-xl border border-secondary/25 bg-secondary/5 p-3 space-y-3">
             <div>
-              <h4 class="font-semibold text-sm">用听众语言告诉 AI</h4>
+              <h4 class="font-semibold text-sm">第四步：选择音乐路线</h4>
               <p class="text-xs text-base-content/50 mt-1">不需要填写流派、BPM 或乐器。</p>
             </div>
             <div>
@@ -600,10 +850,11 @@ onMounted(async () => {
               <span class="text-xs font-medium">前奏怎么抓住人</span>
               <div class="flex flex-wrap gap-1 mt-1"><button v-for="option in introPreferenceOptions" :key="option" type="button" :class="['btn btn-xs', request.introPreference === option ? 'btn-secondary' : 'btn-outline']" @click="setBeginnerPreference('introPreference', option)">{{ option }}</button></div>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm w-full" :disabled="!request.idea.trim() || strategyLoading" @click="generateStrategies()">
+            <button type="button" class="btn btn-secondary btn-sm w-full" :disabled="!sourceReady || strategyLoading || lyricsAnalysisLoading || (request.sourceMode === 'idea' && !selectedLyricRouteId)" @click="prepareStrategies">
               <span v-if="strategyLoading" class="loading loading-spinner loading-xs"></span>
-              {{ strategyLoading ? '正在设计差异化路线...' : 'AI 生成 4 条音乐路线' }}
+              {{ strategyLoading ? '正在设计差异化路线...' : request.sourceMode === 'lyrics' && !lyricsAnalysis ? '分析歌词并生成 4 条音乐路线' : 'AI 生成 4 条音乐路线' }}
             </button>
+            <p v-if="request.sourceMode === 'idea' && !selectedLyricRouteId" class="text-xs text-warning">请先在上方选择一条歌词路线。</p>
           </div>
 
           <div v-if="request.experienceMode === 'beginner' && strategyCards.length" class="space-y-2">
@@ -700,7 +951,8 @@ onMounted(async () => {
               <font-awesome-icon v-else icon="wand-magic-sparkles" class="w-3.5 h-3.5" />
               {{ loading ? '实验中...' : '生成候选' }}
             </button>
-            <span v-if="request.experienceMode === 'beginner' && request.idea.trim() && !selectedStrategyId" class="text-xs text-warning">请先生成并选择一条音乐路线</span>
+            <span v-if="request.sourceMode === 'idea' && sourceReady && !selectedLyricRouteId" class="text-xs text-warning">请先生成并选择一条歌词路线</span>
+            <span v-if="request.experienceMode === 'beginner' && sourceReady && !selectedStrategyId" class="text-xs text-warning">请先生成并选择一条音乐路线</span>
             <span v-if="experimentMessage" class="text-success text-xs font-medium">{{ experimentMessage }}</span>
             <p v-if="error" class="text-error text-sm font-medium">{{ error }}</p>
           </div>
@@ -734,9 +986,15 @@ onMounted(async () => {
             <div v-if="blindCandidates.length === 2" class="rounded-xl border border-secondary/30 bg-secondary/5 p-4 mb-4">
               <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
-                  <p class="text-xs font-bold text-secondary uppercase tracking-wider">盲选竞技场</p>
-                  <p class="text-sm text-base-content/60 mt-1">不看标题和 AI 分数，只按一个维度强制二选一。</p>
+                  <p class="text-xs font-bold text-secondary uppercase tracking-wider">两阶段盲选竞技场</p>
+                  <p class="text-sm text-base-content/60 mt-1">先只看歌词，再只听外部音频，区分歌词胜出与制作放大。</p>
                 </div>
+                <div class="join">
+                  <button type="button" :class="['btn btn-xs join-item', blindStage === 'lyrics' ? 'btn-secondary' : 'btn-outline']" @click="blindStage = 'lyrics'; feedbackDimension = '像真人写的'">第一轮 · 纯歌词</button>
+                  <button type="button" :class="['btn btn-xs join-item', blindStage === 'audio' ? 'btn-secondary' : 'btn-outline']" @click="blindStage = 'audio'; feedbackDimension = '第一耳停留'">第二轮 · 音频</button>
+                </div>
+              </div>
+              <div class="flex flex-wrap justify-end gap-1.5 mb-3">
                 <div class="flex flex-wrap gap-1.5">
                   <button v-for="dimension in feedbackDimensions" :key="dimension" type="button" :class="['btn btn-xs', feedbackDimension === dimension ? 'btn-secondary' : 'btn-outline']" @click="feedbackDimension = dimension">{{ dimension }}</button>
                 </div>
@@ -746,13 +1004,18 @@ onMounted(async () => {
                 <input v-model="testerSegment" class="input input-bordered input-sm" placeholder="受众分组，如 18–24 岁通勤用户" />
               </div>
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <button v-for="(candidate, index) in blindCandidates" :key="candidate.id" type="button" class="rounded-xl border border-base-300 bg-base-100 p-4 text-left hover:border-secondary transition-colors" @click="chooseBlindWinner(candidate)">
+                <button v-for="(candidate, index) in blindCandidates" :key="candidate.id" type="button" class="rounded-xl border border-base-300 bg-base-100 p-4 text-left hover:border-secondary transition-colors disabled:opacity-60" :disabled="blindStage === 'audio' && !blindAudioUrl(candidate)" @click="chooseBlindWinner(candidate)">
                   <div class="flex items-center justify-between mb-3">
                     <span class="badge badge-neutral">候选 {{ index === 0 ? 'A' : 'B' }}</span>
                     <span class="text-xs text-base-content/40">点击选择胜出</span>
                   </div>
-                  <p class="font-semibold text-base leading-7">{{ candidate.hookLine }}</p>
-                  <pre class="whitespace-pre-wrap text-sm leading-6 mt-2 text-base-content/65 font-sans">{{ candidate.chorusSnippet }}</pre>
+                  <template v-if="blindStage === 'lyrics'">
+                    <pre class="whitespace-pre-wrap text-sm leading-7 text-base-content/75 font-sans max-h-64 overflow-auto">{{ candidate.lyrics || candidate.chorusSnippet }}</pre>
+                  </template>
+                  <template v-else>
+                    <audio v-if="blindAudioUrl(candidate)" :src="blindAudioUrl(candidate)" controls class="w-full" @click.stop></audio>
+                    <p v-else class="text-sm text-base-content/45">尚无可播放音频，请先在候选详情中提交生成并同步外部链接。</p>
+                  </template>
                 </button>
               </div>
               <input v-model="feedbackNote" class="input input-bordered input-sm w-full mt-3" placeholder="可选：为什么选它？例如更像人话、第二句更想跟唱" />
@@ -772,7 +1035,7 @@ onMounted(async () => {
                 >
                   <div class="flex items-center justify-between gap-2 mb-2">
                     <span class="font-semibold text-sm truncate">{{ variant.title }}</span>
-                    <span class="badge badge-sm badge-outline">Elo {{ currentRound?.variants[index]?.eloRating || 1000 }}</span>
+                    <span class="badge badge-sm badge-outline">词 {{ currentRound?.variants[index]?.lyricEloRating || 1000 }} / 音 {{ currentRound?.variants[index]?.audioEloRating || 1000 }}</span>
                   </div>
                   <p class="text-xs text-base-content/50 line-clamp-2 mb-2">{{ variant.hookLine }}</p>
                   <p class="text-[11px] text-base-content/40">{{ currentRound?.variants[index]?.wins || 0 }}胜 / {{ currentRound?.variants[index]?.losses || 0 }}负 · AI 参考 {{ variantScore(variant) }}</p>
@@ -928,6 +1191,27 @@ onMounted(async () => {
                   </div>
                 </div>
 
+                <div class="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-3">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div><p class="text-xs font-bold text-primary uppercase tracking-wider">结构化歌词 DNA</p><h4 class="font-semibold mt-1">{{ activeVariant.narrativeMode }} · {{ activeVariant.hookSpeechAct }}</h4></div>
+                    <span class="badge badge-primary badge-outline">{{ activeVariant.perspectiveDistance }}</span>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    <div class="rounded-lg border border-base-300/60 bg-base-100 p-2"><strong>中心意象：</strong>{{ activeVariant.centralImage }}</div>
+                    <div class="rounded-lg border border-base-300/60 bg-base-100 p-2"><strong>情绪矛盾：</strong>{{ activeVariant.emotionalParadox }}</div>
+                    <div class="rounded-lg border border-base-300/60 bg-base-100 p-2"><strong>重复方式：</strong>{{ activeVariant.repeatPattern }}</div>
+                    <div class="rounded-lg border border-base-300/60 bg-base-100 p-2"><strong>叙事推进：</strong>{{ activeVariant.storyProgression }}</div>
+                  </div>
+                  <div class="flex flex-wrap gap-1"><span v-for="detail in activeVariant.specificDetails" :key="detail" class="badge badge-outline badge-sm">细节：{{ detail }}</span></div>
+                  <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                    <div v-for="(label, key) in lyricScoreLabels" :key="key" class="rounded-lg border border-base-300/60 bg-base-100 p-2">
+                      <div class="flex justify-between gap-2 text-xs"><span>{{ label }}</span><strong>{{ activeVariant.lyricScores[key] }}</strong></div>
+                      <progress :class="['progress h-1.5 mt-1', scoreTone(activeVariant.lyricScores[key])]" :value="activeVariant.lyricScores[key]" max="100"></progress>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs"><div><strong class="text-warning">陈词风险</strong><p class="text-base-content/55 mt-1">{{ activeVariant.clicheRisks.join('；') || '无明显风险' }}</p></div><div><strong class="text-warning">相似风险</strong><p class="text-base-content/55 mt-1">{{ activeVariant.derivativeSimilarityRisks.join('；') || '无明显风险' }}</p></div></div>
+                </div>
+
                 <div class="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-3">
                   <div class="flex flex-wrap items-center justify-between gap-2"><div><p class="text-xs font-bold text-accent uppercase tracking-wider">前奏抓耳实验</p><h4 class="font-semibold mt-1">{{ activeVariant.introHook || activeVariant.firstThreeSeconds }}</h4></div><span class="badge badge-accent badge-outline">{{ activeVariant.hookEntrySeconds || '—' }}s 入核心 Hook</span></div>
                   <p class="text-sm leading-6 text-base-content/70">{{ activeVariant.introTimeline || activeVariant.firstThreeSeconds }}</p>
@@ -988,6 +1272,14 @@ onMounted(async () => {
                     </button>
                   </div>
                   <pre class="whitespace-pre-wrap break-words text-sm leading-7 font-mono max-h-[360px] overflow-auto scrollbar-thin">{{ activeVariant.lyrics }}</pre>
+                </div>
+
+                <div v-if="request.sourceMode === 'lyrics'" class="rounded-xl border border-primary/25 bg-primary/5 p-4">
+                  <div class="flex items-center justify-between mb-3"><h4 class="font-semibold">原文 / 当前版本对照</h4><span class="badge badge-primary badge-outline badge-sm">{{ request.lyricProtection }}</span></div>
+                  <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    <div class="rounded-lg border border-base-300/60 bg-base-100 p-3"><p class="text-xs font-bold text-base-content/40 mb-2">用户原文</p><pre class="whitespace-pre-wrap break-words text-xs leading-6 font-mono max-h-72 overflow-auto">{{ request.existingLyrics }}</pre></div>
+                    <div class="rounded-lg border border-base-300/60 bg-base-100 p-3"><p class="text-xs font-bold text-base-content/40 mb-2">本候选使用版本</p><pre class="whitespace-pre-wrap break-words text-xs leading-6 font-mono max-h-72 overflow-auto">{{ activeVariant.lyrics }}</pre></div>
+                  </div>
                 </div>
 
                 <div class="rounded-xl border border-base-300/60 bg-base-200/30 p-4">

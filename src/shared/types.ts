@@ -123,7 +123,13 @@ export interface PromptFromLyricsRequest {
 }
 
 export interface HitLabRequest {
+  sourceMode?: HitSourceMode
+  lyricRouteId?: string
+  lyricRouteContext?: string
   idea: string
+  existingLyrics?: string
+  lyricProtection?: HitLyricProtection
+  lyricsAnalysisContext?: string
   targetPlatforms: string[]
   audience: string
   emotionalCore: string
@@ -141,6 +147,9 @@ export interface HitLabRequest {
   lockedStrategyFields?: HitStrategyField[]
   introPreference?: string
 }
+
+export type HitSourceMode = 'idea' | 'lyrics'
+export type HitLyricProtection = '原文锁定' | '允许删减重排' | '允许轻微润色' | '允许深度改编'
 
 export type HitStrategyField = 'audience' | 'emotionalCore' | 'styleBlend' | 'hookType' | 'lyricAngle'
 
@@ -168,10 +177,64 @@ export interface HitStrategyResult {
   cards: HitStrategyCard[]
 }
 
-export type HitMutationFocus = '自由探索' | '只改核心句' | '只改歌词视角' | '只改节奏与速度' | '只改人声人格' | '只改前3秒' | '只改歌曲结构'
-export type HitCreationStage = 'Hook探索' | '15秒循环' | '30秒短单曲' | '60秒微型歌曲' | '完整化'
+export interface HitLyricDNA {
+  centralImage: string
+  emotionalParadox: string
+  narrativeMode: string
+  hookSpeechAct: string
+  specificDetails: string[]
+  perspectiveDistance: string
+  repeatPattern: string
+  storyProgression: string
+  clicheRisks: string[]
+  derivativeSimilarityRisks: string[]
+}
 
-export type HitFeedbackDimension = '前奏停留' | '第一耳停留' | '歌词共鸣' | '记忆度' | '视频适配' | '复听意愿' | '声音期待'
+export interface HitLyricRouteCard extends HitLyricDNA {
+  id: 'scene' | 'dialogue' | 'metaphor' | 'declaration'
+  title: string
+  positioning: string
+  openingScene: string
+  hookBlueprint: string
+  routePlan: string
+  advantages: string[]
+  risks: string[]
+}
+
+export interface HitLyricRouteResult {
+  summary: string
+  cards: HitLyricRouteCard[]
+}
+
+export interface HitLyricScores {
+  hookCompression: number
+  specificity: number
+  conversationalNaturalness: number
+  narrativeProgression: number
+  singability: number
+  quoteDesire: number
+  remixOpenness: number
+  fullSongExpansion: number
+}
+
+export interface HitLyricsAnalysisResult {
+  summary: string
+  strengths: string[]
+  risks: string[]
+  hookCandidates: Array<{ line: string; reason: string }>
+  excerpt15: string
+  excerpt30: string
+  excerpt90: string
+  singabilityIssues: string[]
+  emotionCurve: string
+  suggestedStructure: string
+}
+
+export type HitMutationFocus = '自由探索' | '只改核心句' | '只改歌词视角' | '只改中心意象' | '只改叙事引擎' | '只改情绪矛盾' | '只改具体细节' | '只改人称距离' | '只改Hook言语动作' | '只改信息留白度' | '只改重复方式' | '只改节奏与速度' | '只改人声人格' | '只改前3秒' | '只改歌曲结构'
+export type HitCreationStage = 'Hook探索' | '15秒循环' | '30秒短单曲' | '90秒微型歌曲' | '60秒微型歌曲' | '完整化'
+
+export type HitBlindStage = 'lyrics' | 'audio'
+export type HitFeedbackDimension = '像真人写的' | '核心句记忆' | '歌词共鸣' | '引用欲' | '叙事推进' | '前奏停留' | '第一耳停留' | '演唱放大' | '编曲放大' | '视频适配' | '复听意愿' | '声音期待'
 export type HitExternalPlatform = '妙响' | 'Suno' | 'Udio' | '其他'
 export type HitFirstImpression = '想继续听' | '无感' | '想跳过'
 export type HitHookVerdict = '成立' | '勉强' | '不成立'
@@ -205,6 +268,7 @@ export interface HitPairwiseFeedback {
   winnerVariantId: string
   loserVariantId: string
   dimension: HitFeedbackDimension
+  stage?: HitBlindStage
   note: string
   testerName?: string
   testerSegment?: string
@@ -218,6 +282,8 @@ export interface HitExperimentVariant extends HitLabVariant {
   eliminationReason: string
   externalGenerations: HitExternalGeneration[]
   eloRating: number
+  lyricEloRating?: number
+  audioEloRating?: number
 }
 
 export interface HitExperimentRound {
@@ -263,6 +329,13 @@ export interface TrendSample {
   useCases: string[]
   familiarElement: string
   surpriseElement: string
+  narrativeMode?: string
+  centralImage?: string
+  averageLineLength?: number
+  repetitionRate?: number
+  perspectiveDistance?: string
+  hookSpeechAct?: string
+  specificDetailCount?: number
   note: string
 }
 
@@ -314,7 +387,7 @@ export interface HitLabIdeaResult {
   hookType: string
 }
 
-export interface HitLabVariant {
+export interface HitLabVariant extends HitLyricDNA {
   title: string
   positioning: string
   targetPlatform: string
@@ -336,6 +409,7 @@ export interface HitLabVariant {
   douyinScore: number
   qishuiScore: number
   memorabilityScore: number
+  lyricScores: HitLyricScores
   spreadPotential: string
   shortVideoUseCases: string[]
   riskNotes: string[]
@@ -352,6 +426,7 @@ export interface ModelResponse {
   content: string
   error?: string
   durationMs?: number
+  finishReason?: string
 }
 
 export interface FavoriteRecord {

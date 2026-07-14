@@ -23,6 +23,9 @@ export default defineConfig({
   },
   renderer: {
     root: 'src/renderer',
+    server: {
+      port: 5199
+    },
     build: {
       outDir: 'out/renderer'
     },

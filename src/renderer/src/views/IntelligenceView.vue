@@ -10,7 +10,7 @@ const message = ref('')
 const aspectOptions = ['歌词共鸣', '旋律抓耳', '节奏卡点', '人声辨识度', '氛围感', '编曲层次', '口语感', '反差感']
 
 const tasteDraft = ref({ title: '', preference: '喜欢' as TasteReference['preference'], aspects: [] as string[], note: '' })
-const trendDraft = ref({ platform: '抖音', title: '', hookEntrySeconds: 3, hookLengthSeconds: 15, bpm: 100, vocalPersona: '', useCases: '', familiarElement: '', surpriseElement: '', note: '', validDays: 30 })
+const trendDraft = ref({ platform: '抖音', title: '', hookEntrySeconds: 3, hookLengthSeconds: 15, bpm: 100, vocalPersona: '', useCases: '', familiarElement: '', surpriseElement: '', narrativeMode: '', centralImage: '', averageLineLength: 8, repetitionRate: 30, perspectiveDistance: '', hookSpeechAct: '', specificDetailCount: 2, note: '', validDays: 30 })
 const publishDraft = ref({ experimentId: '', variantId: '', platform: '抖音', account: '', views: 0, completionRate: 0, likes: 0, favorites: 0, comments: 0, shares: 0, musicUses: 0 })
 
 const profile = computed(() => buildLearnedProfile(state.value, experiments.value))
@@ -77,6 +77,13 @@ async function addTrend() {
     useCases: trendDraft.value.useCases.split(/[、,，]/).map(item => item.trim()).filter(Boolean),
     familiarElement: trendDraft.value.familiarElement,
     surpriseElement: trendDraft.value.surpriseElement,
+    narrativeMode: trendDraft.value.narrativeMode,
+    centralImage: trendDraft.value.centralImage,
+    averageLineLength: trendDraft.value.averageLineLength,
+    repetitionRate: trendDraft.value.repetitionRate,
+    perspectiveDistance: trendDraft.value.perspectiveDistance,
+    hookSpeechAct: trendDraft.value.hookSpeechAct,
+    specificDetailCount: trendDraft.value.specificDetailCount,
     note: trendDraft.value.note
   }
   state.value.trendSamples.unshift(trend)
@@ -191,13 +198,20 @@ onMounted(async () => {
             <input v-model="trendDraft.vocalPersona" class="input input-bordered input-sm" placeholder="人声人格" />
             <input v-model="trendDraft.familiarElement" class="input input-bordered input-sm lg:col-span-2" placeholder="保持熟悉的部分" />
             <input v-model="trendDraft.surpriseElement" class="input input-bordered input-sm lg:col-span-2" placeholder="提供意外的部分" />
+            <input v-model="trendDraft.narrativeMode" class="input input-bordered input-sm" placeholder="叙事模式，如场景切片" />
+            <input v-model="trendDraft.centralImage" class="input input-bordered input-sm" placeholder="中心意象" />
+            <label class="input input-bordered input-sm flex items-center gap-1"><input v-model.number="trendDraft.averageLineLength" type="number" class="w-full" />平均字/行</label>
+            <label class="input input-bordered input-sm flex items-center gap-1"><input v-model.number="trendDraft.repetitionRate" type="number" min="0" max="100" class="w-full" />重复%</label>
+            <input v-model="trendDraft.perspectiveDistance" class="input input-bordered input-sm" placeholder="人称距离，如弱人称绑定" />
+            <input v-model="trendDraft.hookSpeechAct" class="input input-bordered input-sm" placeholder="Hook 动作，如祝福/拒绝" />
+            <label class="input input-bordered input-sm flex items-center gap-1"><input v-model.number="trendDraft.specificDetailCount" type="number" min="0" class="w-full" />具体细节数</label>
             <input v-model="trendDraft.useCases" class="input input-bordered input-sm lg:col-span-2" placeholder="视频场景，用逗号分隔" />
             <input v-model="trendDraft.note" class="input input-bordered input-sm lg:col-span-2" placeholder="备注" />
           </div>
           <button class="btn btn-primary btn-sm self-end" :disabled="!trendDraft.title.trim()" @click="addTrend">保存趋势样本</button>
           <div class="space-y-2 max-h-60 overflow-auto">
             <div v-for="item in state.trendSamples" :key="item.id" class="flex justify-between rounded-lg border border-base-300/60 p-3">
-              <div><strong class="text-sm">{{ item.platform }} · {{ item.title }}</strong><p class="text-xs mt-1 text-base-content/55">{{ item.hookEntrySeconds }}s 入 Hook · {{ item.bpm }} BPM · {{ item.expiresAt > Date.now() ? '有效' : '已过期' }}</p></div>
+              <div><strong class="text-sm">{{ item.platform }} · {{ item.title }}</strong><p class="text-xs mt-1 text-base-content/55">{{ item.hookEntrySeconds }}s 入 Hook · {{ item.bpm }} BPM · {{ item.expiresAt > Date.now() ? '有效' : '已过期' }}</p><p v-if="item.narrativeMode || item.hookSpeechAct" class="text-xs mt-1 text-primary/70">{{ item.narrativeMode || '未标叙事' }} · {{ item.perspectiveDistance || '未标人称' }} · {{ item.hookSpeechAct || '未标 Hook 动作' }} · {{ item.specificDetailCount || 0 }} 个细节</p></div>
               <button class="btn btn-ghost btn-xs" @click="removeTrend(item.id)">删除</button>
             </div>
           </div>

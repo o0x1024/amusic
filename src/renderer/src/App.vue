@@ -86,12 +86,22 @@ function applyFavorite(record: FavoriteRecord) {
       </div>
     </aside>
 
-    <main class="flex-1 min-h-0 overflow-auto bg-base-100 relative">
-      <StudioView v-if="page === 'studio'" :pending-favorite="pendingFavorite" @open-settings="page = 'settings'" />
-      <HitLabView v-else-if="page === 'hitLab'" />
-      <IntelligenceView v-else-if="page === 'intelligence'" />
-      <FavoritesView v-else-if="page === 'favorites'" @apply="applyFavorite" />
-      <SettingsView v-else />
+    <main class="flex-1 min-h-0 overflow-hidden bg-base-100 relative">
+      <div class="h-full overflow-auto" :class="{ hidden: page !== 'studio' }">
+        <StudioView :pending-favorite="pendingFavorite" @open-settings="page = 'settings'" />
+      </div>
+      <div class="h-full overflow-auto" :class="{ hidden: page !== 'hitLab' }">
+        <HitLabView />
+      </div>
+      <div class="h-full overflow-auto" :class="{ hidden: page !== 'intelligence' }">
+        <IntelligenceView />
+      </div>
+      <div class="h-full overflow-auto" :class="{ hidden: page !== 'favorites' }">
+        <FavoritesView @apply="applyFavorite" />
+      </div>
+      <div class="h-full overflow-auto" :class="{ hidden: page !== 'settings' }">
+        <SettingsView />
+      </div>
     </main>
   </div>
 </template>
