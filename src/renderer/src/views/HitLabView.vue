@@ -132,7 +132,6 @@ const sourceReady = computed(() => request.value.sourceMode === 'lyrics'
 const canGenerate = computed(() => sourceReady.value
   && !loading.value
   && !refreshingIdea.value
-  && (request.value.sourceMode === 'lyrics' || Boolean(selectedLyricRouteId.value))
   && (request.value.experienceMode === 'professional' || Boolean(selectedStrategyId.value)))
 const feedbackDimensions = computed(() => blindStage.value === 'lyrics' ? lyricFeedbackDimensions : audioFeedbackDimensions)
 const activeStageConfig = computed(() => getCreationStageConfig(request.value.creationStage))
@@ -490,10 +489,6 @@ function applyLyricRoute(card: HitLyricRouteCard) {
 
 async function generateStrategies() {
   if (!sourceReady.value || strategyLoading.value) return
-  if (request.value.sourceMode === 'idea' && !selectedLyricRouteId.value) {
-    error.value = '请先生成并选择一条歌词路线'
-    return
-  }
   strategyLoading.value = true
   error.value = ''
   selectedStrategyId.value = ''
@@ -535,10 +530,6 @@ async function prepareStrategies() {
   if (request.value.sourceMode === 'lyrics' && !lyricsAnalysis.value) {
     const analyzed = await analyzeLyrics()
     if (!analyzed) return
-  }
-  if (request.value.sourceMode === 'idea' && !selectedLyricRouteId.value) {
-    error.value = '请先生成并选择一条歌词路线'
-    return
   }
   await generateStrategies()
 }
@@ -766,8 +757,8 @@ onMounted(async () => {
           <div v-if="request.sourceMode === 'idea'" class="rounded-xl border border-secondary/25 bg-secondary/5 p-3 space-y-3">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <h4 class="font-semibold text-sm">第三步：选择歌词路线</h4>
-                <p class="text-xs text-base-content/50 mt-1">先决定故事怎么讲，暂不讨论流派、BPM 和编曲。</p>
+                <h4 class="font-semibold text-sm">第三步（可选）：选择歌词路线</h4>
+                <p class="text-xs text-base-content/50 mt-1">需要精确控制叙事方式时再选择；跳过后由 AI 根据核心创意直接推导。</p>
               </div>
               <button type="button" class="btn btn-secondary btn-xs shrink-0" :disabled="!request.idea.trim() || lyricRouteLoading" @click="generateLyricRoutes">
                 <span v-if="lyricRouteLoading" class="loading loading-spinner loading-xs"></span>
@@ -787,7 +778,7 @@ onMounted(async () => {
                 </div>
               </button>
             </div>
-            <p v-else class="text-xs text-base-content/45">输入核心创意后生成四条纯歌词路线。</p>
+            <p v-else class="text-xs text-base-content/45">可生成四条纯歌词路线供选择，也可以跳过。</p>
           </div>
 
           <div v-if="request.sourceMode === 'lyrics' && lyricsAnalysis" class="rounded-xl border border-success/25 bg-success/5 p-3 space-y-3">
@@ -850,11 +841,10 @@ onMounted(async () => {
               <span class="text-xs font-medium">前奏怎么抓住人</span>
               <div class="flex flex-wrap gap-1 mt-1"><button v-for="option in introPreferenceOptions" :key="option" type="button" :class="['btn btn-xs', request.introPreference === option ? 'btn-secondary' : 'btn-outline']" @click="setBeginnerPreference('introPreference', option)">{{ option }}</button></div>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm w-full" :disabled="!sourceReady || strategyLoading || lyricsAnalysisLoading || (request.sourceMode === 'idea' && !selectedLyricRouteId)" @click="prepareStrategies">
+            <button type="button" class="btn btn-secondary btn-sm w-full" :disabled="!sourceReady || strategyLoading || lyricsAnalysisLoading" @click="prepareStrategies">
               <span v-if="strategyLoading" class="loading loading-spinner loading-xs"></span>
               {{ strategyLoading ? '正在设计差异化路线...' : request.sourceMode === 'lyrics' && !lyricsAnalysis ? '分析歌词并生成 4 条音乐路线' : 'AI 生成 4 条音乐路线' }}
             </button>
-            <p v-if="request.sourceMode === 'idea' && !selectedLyricRouteId" class="text-xs text-warning">请先在上方选择一条歌词路线。</p>
           </div>
 
           <div v-if="request.experienceMode === 'beginner' && strategyCards.length" class="space-y-2">
@@ -951,7 +941,6 @@ onMounted(async () => {
               <font-awesome-icon v-else icon="wand-magic-sparkles" class="w-3.5 h-3.5" />
               {{ loading ? '实验中...' : '生成候选' }}
             </button>
-            <span v-if="request.sourceMode === 'idea' && sourceReady && !selectedLyricRouteId" class="text-xs text-warning">请先生成并选择一条歌词路线</span>
             <span v-if="request.experienceMode === 'beginner' && sourceReady && !selectedStrategyId" class="text-xs text-warning">请先生成并选择一条音乐路线</span>
             <span v-if="experimentMessage" class="text-success text-xs font-medium">{{ experimentMessage }}</span>
             <p v-if="error" class="text-error text-sm font-medium">{{ error }}</p>
