@@ -126,6 +126,7 @@ export interface HitLabRequest {
   sourceMode?: HitSourceMode
   lyricRouteId?: string
   lyricRouteContext?: string
+  openingMode?: HitOpeningMode
   idea: string
   existingLyrics?: string
   lyricProtection?: HitLyricProtection
@@ -149,6 +150,7 @@ export interface HitLabRequest {
 }
 
 export type HitSourceMode = 'idea' | 'lyrics'
+export type HitOpeningMode = '自动选择' | '核心句直入' | '动作现场' | '直接对话' | '中心意象' | '反常判断' | '声音拟声' | '结果先行'
 export type HitLyricProtection = '原文锁定' | '允许删减重排' | '允许轻微润色' | '允许深度改编'
 
 export type HitStrategyField = 'audience' | 'emotionalCore' | 'styleBlend' | 'hookType' | 'lyricAngle'
@@ -230,7 +232,7 @@ export interface HitLyricsAnalysisResult {
   suggestedStructure: string
 }
 
-export type HitMutationFocus = '自由探索' | '只改核心句' | '只改歌词视角' | '只改中心意象' | '只改叙事引擎' | '只改情绪矛盾' | '只改具体细节' | '只改人称距离' | '只改Hook言语动作' | '只改信息留白度' | '只改重复方式' | '只改节奏与速度' | '只改人声人格' | '只改前3秒' | '只改歌曲结构'
+export type HitMutationFocus = '自由探索' | '只改核心句' | '只改歌词视角' | '只改中心意象' | '只改叙事引擎' | '只改情绪矛盾' | '只改具体细节' | '只改人称距离' | '只改Hook言语动作' | '只改信息留白度' | '只改重复方式' | '只改开场机制' | '只改节奏与速度' | '只改人声人格' | '只改前3秒' | '只改歌曲结构'
 export type HitCreationStage = 'Hook探索' | '15秒循环' | '30秒短单曲' | '90秒微型歌曲' | '60秒微型歌曲' | '完整化'
 
 export type HitBlindStage = 'lyrics' | 'audio'
@@ -392,6 +394,7 @@ export interface HitLabVariant extends HitLyricDNA {
   positioning: string
   targetPlatform: string
   hookLine: string
+  openingMode: string
   firstThreeSeconds: string
   introHook: string
   introTimeline: string

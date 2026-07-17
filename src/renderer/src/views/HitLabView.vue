@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, toRaw, watch } from 'vue'
-import type { HitBlindStage, HitExperimentRecord, HitExperimentRound, HitExperimentVariant, HitExternalGeneration, HitExternalPlatform, HitFeedbackDimension, HitFirstImpression, HitHookVerdict, HitIntroVerdict, HitLabRequest, HitLabResult, HitLabVariant, HitLyricProtection, HitLyricRouteCard, HitLyricScores, HitLyricsAnalysisResult, HitMutationFocus, HitStrategyCard, HitStrategyField } from '../../../shared/types'
+import type { HitBlindStage, HitExperimentRecord, HitExperimentRound, HitExperimentVariant, HitExternalGeneration, HitExternalPlatform, HitFeedbackDimension, HitFirstImpression, HitHookVerdict, HitIntroVerdict, HitLabRequest, HitLabResult, HitLabVariant, HitLyricProtection, HitLyricRouteCard, HitLyricScores, HitLyricsAnalysisResult, HitMutationFocus, HitOpeningMode, HitStrategyCard, HitStrategyField } from '../../../shared/types'
 import { updateElo } from '../../../shared/hit-intelligence'
 import { mergeStrategyFields } from '../../../shared/hit-strategy'
 import { HIT_CREATION_STAGES, getCreationStageConfig, normalizeCreationStage } from '../../../shared/creation-stage'
 import { lyricRouteContext } from '../../../shared/hit-lyric-route'
+import { HIT_OPENING_MODES } from '../../../shared/hit-opening'
 
 const platformOptions = ['抖音', '汽水音乐', '小红书', 'B站']
 const hookOptions = ['副歌短句抓耳', '开头一句杀', '情绪反差', '土味但高级', '旋律洗脑', '合唱跟唱', '说唱记忆点', '生活口头禅', '反复自嘲']
 const angleOptions = ['生活观察', '人物小传', '群像蒙太奇', '轻喜剧吐槽', '方言宣言', '物件第一人称', '劳动节奏', '知识典故重构', '儿童视角', '社区故事', '朋友视角', '家庭日常', '成长释怀', '近未来寓言', '无人物自然叙事', '亲密关系对话', '抽象实验叙事']
-const mutationOptions: HitMutationFocus[] = ['自由探索', '只改核心句', '只改叙事引擎', '只改中心意象', '只改情绪矛盾', '只改具体细节', '只改歌词视角', '只改人称距离', '只改Hook言语动作', '只改信息留白度', '只改重复方式', '只改节奏与速度', '只改人声人格', '只改前3秒', '只改歌曲结构']
+const mutationOptions: HitMutationFocus[] = ['自由探索', '只改核心句', '只改叙事引擎', '只改中心意象', '只改情绪矛盾', '只改具体细节', '只改歌词视角', '只改人称距离', '只改Hook言语动作', '只改信息留白度', '只改重复方式', '只改开场机制', '只改节奏与速度', '只改人声人格', '只改前3秒', '只改歌曲结构']
 const lyricFeedbackDimensions: HitFeedbackDimension[] = ['像真人写的', '核心句记忆', '歌词共鸣', '引用欲', '叙事推进']
 const audioFeedbackDimensions: HitFeedbackDimension[] = ['前奏停留', '第一耳停留', '演唱放大', '编曲放大', '视频适配', '复听意愿', '声音期待']
 const externalPlatforms: HitExternalPlatform[] = ['妙响', 'Suno', 'Udio', '其他']
@@ -47,6 +48,7 @@ function emptyLyricScores(): HitLyricScores {
 const selectedPlatforms = ref(['抖音', '汽水音乐'])
 const request = ref<HitLabRequest>({
   sourceMode: 'idea',
+  openingMode: '自动选择',
   idea: '',
   existingLyrics: '',
   lyricProtection: '原文锁定',
@@ -262,6 +264,7 @@ function loadExperiment(record: HitExperimentRecord) {
       variant.lyricEloRating ||= variant.eloRating
       variant.audioEloRating ||= variant.eloRating
       variant.centralImage ||= ''
+      variant.openingMode ||= '历史数据未标注'
       variant.emotionalParadox ||= ''
       variant.narrativeMode ||= '历史数据未标注'
       variant.hookSpeechAct ||= ''
@@ -278,6 +281,7 @@ function loadExperiment(record: HitExperimentRecord) {
   request.value = {
     ...JSON.parse(JSON.stringify(record.request)),
     sourceMode: record.request.sourceMode || 'idea',
+    openingMode: record.request.openingMode || '自动选择',
     existingLyrics: record.request.existingLyrics || '',
     lyricProtection: record.request.lyricProtection || '原文锁定',
     lyricsAnalysisContext: record.request.lyricsAnalysisContext || '',
@@ -584,6 +588,7 @@ function copyVariant(variant: HitLabVariant) {
     `定位：${variant.positioning}`,
     `平台：${variant.targetPlatform}`,
     `Hook：${variant.hookLine}`,
+    `开场机制：${variant.openingMode}`,
     `叙事引擎：${variant.narrativeMode}`,
     `中心意象：${variant.centralImage}`,
     `情绪矛盾：${variant.emotionalParadox}`,
@@ -637,11 +642,15 @@ function continueWithVariant(variant: HitLabVariant) {
     ...externalFeedback
   ].join('\n')
   if (variant.stylePrompt) request.value.styleBlend = variant.stylePrompt
+  if (HIT_OPENING_MODES.includes(variant.openingMode as HitOpeningMode)) {
+    request.value.openingMode = variant.openingMode as HitOpeningMode
+  }
   selectedLyricRouteId.value = request.value.lyricRouteId || 'continued-route'
   request.value.lyricRouteId ||= 'continued-route'
   request.value.lyricRouteContext = [
     `延续胜出候选《${variant.title}》的歌词 DNA`,
     `叙事引擎：${variant.narrativeMode}`,
+    `开场机制：${variant.openingMode}`,
     `中心意象：${variant.centralImage}`,
     `情绪矛盾：${variant.emotionalParadox}`,
     `Hook言语动作：${variant.hookSpeechAct}`,
@@ -780,6 +789,16 @@ onMounted(async () => {
             </div>
             <p v-else class="text-xs text-base-content/45">可生成四条纯歌词路线供选择，也可以跳过。</p>
           </div>
+
+          <label v-if="request.sourceMode === 'idea'" class="form-control rounded-xl border border-accent/25 bg-accent/5 p-3">
+            <span class="label py-0 pb-2">
+              <span><strong class="label-text text-sm">开场机制</strong><small class="block text-base-content/50 mt-1">独立控制第一句话如何进入，不等同于整首歌的叙事路线。</small></span>
+            </span>
+            <div class="flex flex-wrap gap-1.5">
+              <button v-for="mode in HIT_OPENING_MODES" :key="mode" type="button" :class="['btn btn-xs', request.openingMode === mode ? 'btn-accent' : 'btn-outline']" @click="request.openingMode = mode">{{ mode }}</button>
+            </div>
+            <span class="text-xs text-base-content/45 mt-2">自动选择会让不同候选分别测试核心句、动作、对话、意象等入口。</span>
+          </label>
 
           <div v-if="request.sourceMode === 'lyrics' && lyricsAnalysis" class="rounded-xl border border-success/25 bg-success/5 p-3 space-y-3">
             <div><strong class="text-sm">歌词诊断</strong><p class="text-xs text-base-content/65 leading-5 mt-1">{{ lyricsAnalysis.summary }}</p></div>
@@ -1060,14 +1079,16 @@ onMounted(async () => {
                   <button type="button" class="btn btn-warning btn-sm" :disabled="!eliminationReason.trim()" @click="eliminateActiveVariant">淘汰此候选</button>
                 </div>
 
-                <div class="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-4">
-                  <div class="flex items-start justify-between gap-3">
+                <details class="collapse collapse-arrow rounded-xl border border-primary/30 bg-primary/5">
+                  <summary class="collapse-title flex items-start justify-between gap-3 pr-12">
                     <div>
                       <h4 class="font-semibold">外部生成与试听反馈</h4>
                       <p class="text-xs text-base-content/50 mt-1">在妙响等平台试听后回来记录，不需要上传音频。</p>
                     </div>
                     <span class="badge badge-outline">{{ activeStoredVariant?.externalGenerations.length || 0 }} 条记录</span>
-                  </div>
+                  </summary>
+
+                  <div class="collapse-content space-y-4">
 
                   <div v-if="activeStoredVariant?.externalGenerations.length" class="space-y-2">
                     <div v-for="item in activeStoredVariant.externalGenerations" :key="item.id" class="rounded-lg border border-base-300/60 bg-base-100 p-3">
@@ -1153,7 +1174,8 @@ onMounted(async () => {
                     </label>
                     <button type="button" class="btn btn-primary btn-sm" :disabled="!externalDraft.versionLabel.trim()" @click="saveExternalFeedback">保存试听反馈</button>
                   </div>
-                </div>
+                  </div>
+                </details>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
                   <p class="lg:col-span-3 text-xs text-base-content/45">以下为 AI 未校准参考，不参与盲选排序</p>
@@ -1183,7 +1205,7 @@ onMounted(async () => {
                 <div class="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-3">
                   <div class="flex flex-wrap items-center justify-between gap-2">
                     <div><p class="text-xs font-bold text-primary uppercase tracking-wider">结构化歌词 DNA</p><h4 class="font-semibold mt-1">{{ activeVariant.narrativeMode }} · {{ activeVariant.hookSpeechAct }}</h4></div>
-                    <span class="badge badge-primary badge-outline">{{ activeVariant.perspectiveDistance }}</span>
+                    <div class="flex flex-wrap gap-1"><span class="badge badge-accent badge-outline">开场：{{ activeVariant.openingMode }}</span><span class="badge badge-primary badge-outline">{{ activeVariant.perspectiveDistance }}</span></div>
                   </div>
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                     <div class="rounded-lg border border-base-300/60 bg-base-100 p-2"><strong>中心意象：</strong>{{ activeVariant.centralImage }}</div>
